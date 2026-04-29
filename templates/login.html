@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="auth-shell">
+    <main class="auth-layout">
+      <section class="auth-brand-panel">
+        <img src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="Thunder Buddies Studios" />
+        <span class="label">Role-based access</span>
+        <h1>Login once. Land in the right dashboard.</h1>
+        <p>Customers, developers, and admins share one account system with separate permissions.</p>
+      </section>
+
+      <section class="auth-card">
+        {% if error %}
+          <div class="studio-alert">{{ error }}</div>
+        {% endif %}
+
+        <div class="auth-tabs">
+          <a class="{{ 'active' if mode != 'register' else '' }}" href="{{ url_for('login') }}">Login</a>
+          <a class="{{ 'active' if mode == 'register' else '' }}" href="{{ url_for('login', mode='register') }}">Create account</a>
+        </div>
+
+        {% if mode == "register" %}
+          <form method="post" action="{{ url_for('register_post') }}">
+            <label>
+              Username
+              <input name="username" type="text" placeholder="ThunderOperator" required />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" placeholder="you@example.com" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" placeholder="Create a password" required />
+            </label>
+            <label>
+              Account role
+              <select name="role" id="roleSelect">
+                <option value="customer">Customer</option>
+                <option value="developer">Developer</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label id="accessCodeField">
+              Developer/Admin access code
+              <input name="access_code" type="password" placeholder="Required for staff roles" />
+            </label>
+            <button class="submit-button" type="submit">Create account</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('login_post') }}">
+            <input type="hidden" name="next" value="{{ next_url }}" />
+            <label>
+              Email or username
+              <input name="identifier" type="text" placeholder="you@example.com" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" placeholder="Your password" required />
+            </label>
+            <button class="submit-button" type="submit">Login</button>
+          </form>
+        {% endif %}
+
+        <a class="discord-button" href="{{ url_for('discord_login') }}">Continue with Discord as customer</a>
+        <a class="quiet-link" href="{{ url_for('home') }}">Back to home</a>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

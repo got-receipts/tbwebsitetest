@@ -7,6 +7,10 @@ const deadline = document.querySelector("#deadline");
 const lookupInput = document.querySelector("#lookupInput");
 const lookupButton = document.querySelector("#lookupButton");
 const lookupResult = document.querySelector("#lookupResult");
+const modalButtons = Array.from(document.querySelectorAll("[data-modal]"));
+const closeButtons = Array.from(document.querySelectorAll("[data-close-modal]"));
+const roleSelect = document.querySelector("#roleSelect");
+const accessCodeField = document.querySelector("#accessCodeField");
 
 function tierFor(score) {
   if (score >= 170) return "Campaign grade";
@@ -24,6 +28,7 @@ function deadlinePoints() {
 }
 
 function calculateScore() {
+  if (!scoreLabel || !tierLabel || !meter) return;
   let score = deadlinePoints();
   let selectedCount = 0;
 
@@ -77,10 +82,10 @@ function renderProgress(record, phases) {
       </div>
       <div>
         <span class="label">Complexity</span>
-        <strong>${record.score} pts · ${record.tier}</strong>
+        <strong>${record.score} pts | ${record.tier}</strong>
       </div>
     </div>
-    <p><strong>${record.project_name}</strong> · ${record.notes}</p>
+    <p><strong>${record.project_name}</strong> | ${record.notes}</p>
     <div class="phase-list">${phaseMarkup}</div>
   `;
 }
@@ -125,3 +130,45 @@ form?.addEventListener("submit", (event) => {
 });
 
 calculateScore();
+
+function openModal(id, trigger) {
+  const modal = document.querySelector(`#${id}`);
+  if (!modal) return;
+  const phase = trigger?.dataset.phase;
+  const phaseTitle = document.querySelector("#phaseModalTitle");
+  if (phase && phaseTitle) phaseTitle.textContent = phase;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeModal(modal) {
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+modalButtons.forEach((button) => {
+  button.addEventListener("click", () => openModal(button.dataset.modal, button));
+});
+
+closeButtons.forEach((button) => {
+  button.addEventListener("click", () => closeModal(button.closest(".modal-backdrop")));
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  document.querySelectorAll(".modal-backdrop.open").forEach(closeModal);
+});
+
+document.querySelectorAll(".modal-backdrop").forEach((modal) => {
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal(modal);
+  });
+});
+
+function syncAccessCodeField() {
+  if (!roleSelect || !accessCodeField) return;
+  accessCodeField.classList.toggle("muted-field", roleSelect.value === "customer");
+}
+
+roleSelect?.addEventListener("change", syncAccessCodeField);
+syncAccessCodeField();

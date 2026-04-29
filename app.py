@@ -7,11 +7,13 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 REQUESTS_FILE = DATA_DIR / "requests.json"
+USERS_FILE = DATA_DIR / "users.json"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -88,14 +90,17 @@ PHASES = [
 
 PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
-STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Settings"]
+STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Settings", "Admin"]
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
+ROLES = ["customer", "developer", "admin"]
 
 
 def ensure_storage():
     DATA_DIR.mkdir(exist_ok=True)
     if not REQUESTS_FILE.exists():
         REQUESTS_FILE.write_text("[]", encoding="utf-8")
+    if not USERS_FILE.exists():
+        USERS_FILE.write_text("[]", encoding="utf-8")
 
 
 def load_requests():
@@ -107,6 +112,57 @@ def load_requests():
 def save_requests(records):
     ensure_storage()
     REQUESTS_FILE.write_text(json.dumps(records, indent=2), encoding="utf-8")
+
+
+def load_users():
+    ensure_storage()
+    return json.loads(USERS_FILE.read_text(encoding="utf-8"))
+
+
+def save_users(users):
+    ensure_storage()
+    USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
+
+
+def public_user(user):
+    return {key: value for key, value in user.items() if key != "password_hash"}
+
+
+def find_user(identifier):
+    normalized = identifier.strip().lower()
+    for user in load_users():
+        if user.get("email", "").lower() == normalized or user.get("username", "").lower() == normalized:
+            return user
+    return None
+
+
+def create_user(username, email, password, role="customer"):
+    users = load_users()
+    user = {
+        "id": f"usr_{secrets.token_hex(8)}",
+        "username": username.strip(),
+        "email": email.strip().lower(),
+        "role": role,
+        "password_hash": generate_password_hash(password),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "last_login": None,
+        "avatar": None,
+        "prototype": False,
+    }
+    users.append(user)
+    save_users(users)
+    return user
+
+
+def access_code_allows(role, code):
+    if role == "customer":
+        return True
+    env_name = "ADMIN_ACCESS_CODE" if role == "admin" else "DEVELOPER_ACCESS_CODE"
+    expected = os.environ.get(env_name)
+    if expected:
+        return secrets.compare_digest(code or "", expected)
+    fallback = "THUNDERADMIN" if role == "admin" else "THUNDERDEV"
+    return secrets.compare_digest(code or "", fallback)
 
 
 def normalize_record(record):
@@ -245,28 +301,47 @@ def calculate_complexity(form):
 
 
 def current_user():
-    return session.get(
-        "discord_user",
-        {
-            "id": "prototype-user",
-            "username": "Guest builder",
-            "avatar": None,
-            "prototype": True,
-        },
-    )
+    account = session.get("account")
+    if account:
+        return account
+    return {
+        "id": "guest",
+        "username": "Guest builder",
+        "email": "",
+        "role": "guest",
+        "avatar": None,
+        "prototype": True,
+    }
+
+
+def login_user(user):
+    users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["last_login"] = datetime.now(timezone.utc).isoformat()
+            user = saved
+            break
+    save_users(users)
+    session["account"] = public_user(user)
 
 
 def studio_unlocked():
-    studio_pin = os.environ.get("STUDIO_PIN")
-    return not studio_pin or session.get("studio_unlocked") is True
+    return current_user().get("role") in {"developer", "admin"}
+
+
+def admin_unlocked():
+    return current_user().get("role") == "admin"
 
 
 def records_for_user(records, user):
+    if user.get("role") == "admin":
+        return records
     return [
         record
         for record in records
         if record.get("discord_id") == user["id"]
         or record.get("discord_name", "").lower() == user["username"].lower()
+        or record.get("client_user_id") == user["id"]
     ]
 
 
@@ -274,11 +349,11 @@ def records_for_user(records, user):
 def protect_studio_routes():
     if not request.path.startswith("/studio"):
         return None
-    if request.endpoint in {"studio_login", "studio_login_post", "static"}:
+    if request.endpoint in {"static"}:
         return None
     if studio_unlocked():
         return None
-    return redirect(url_for("studio_login"))
+    return redirect(url_for("login", next=request.path))
 
 
 @app.get("/")
@@ -296,9 +371,72 @@ def home():
     )
 
 
+@app.get("/login")
+def login():
+    if current_user().get("role") in ROLES:
+        return redirect(url_for("dashboard"))
+    return render_template("login.html", mode=request.args.get("mode", "login"), next_url=request.args.get("next", ""))
+
+
+@app.post("/login")
+def login_post():
+    identifier = request.form.get("identifier", "")
+    password = request.form.get("password", "")
+    user = find_user(identifier)
+    if not user or not check_password_hash(user["password_hash"], password):
+        return render_template(
+            "login.html",
+            mode="login",
+            error="That email, username, or password did not match.",
+            next_url=request.form.get("next", ""),
+        ), 401
+
+    login_user(user)
+    next_url = request.form.get("next") or ""
+    if next_url.startswith("/studio") and current_user().get("role") in {"developer", "admin"}:
+        return redirect(next_url)
+    return redirect(url_for("dashboard"))
+
+
+@app.post("/register")
+def register_post():
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+    role = request.form.get("role", "customer")
+    access_code = request.form.get("access_code", "")
+
+    if role not in ROLES:
+        role = "customer"
+    if not username or not email or not password:
+        return render_template("login.html", mode="register", error="Username, email, and password are required.", next_url=""), 400
+    if find_user(email) or find_user(username):
+        return render_template("login.html", mode="register", error="That account already exists.", next_url=""), 409
+    if not access_code_allows(role, access_code):
+        return render_template("login.html", mode="register", error="That role access code is not valid.", next_url=""), 403
+
+    user = create_user(username, email, password, role)
+    login_user(user)
+    return redirect(url_for("dashboard"))
+
+
+@app.get("/dashboard")
+def dashboard():
+    role = current_user().get("role")
+    if role == "admin":
+        return redirect(url_for("studio_dashboard", tab="Admin"))
+    if role == "developer":
+        return redirect(url_for("studio_dashboard"))
+    if role == "customer":
+        return redirect(url_for("client_portal"))
+    return redirect(url_for("login"))
+
+
 @app.get("/client")
 def client_portal():
     user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next=request.path))
     records = sort_records(records_for_user(load_requests(), user))
     active_tab = request.args.get("tab", "Overview")
     if active_tab not in CLIENT_TABS:
@@ -318,36 +456,35 @@ def client_portal():
 
 @app.get("/logout")
 def logout():
+    session.pop("account", None)
     session.pop("discord_user", None)
     return redirect(url_for("home"))
 
 
 @app.get("/studio/login")
 def studio_login():
-    return render_template("studio_login.html", has_pin=bool(os.environ.get("STUDIO_PIN")))
+    return redirect(url_for("login", next="/studio"))
 
 
 @app.post("/studio/login")
 def studio_login_post():
-    studio_pin = os.environ.get("STUDIO_PIN")
-    if not studio_pin or request.form.get("pin") == studio_pin:
-        session["studio_unlocked"] = True
-        return redirect(url_for("studio_dashboard"))
-    return render_template("studio_login.html", has_pin=True, error="That studio PIN did not match."), 401
+    return redirect(url_for("login", next="/studio"))
 
 
 @app.get("/studio/logout")
 def studio_logout():
-    session.pop("studio_unlocked", None)
+    session.pop("account", None)
     return redirect(url_for("home"))
 
 
 @app.get("/studio")
 def studio_dashboard():
+    account = current_user()
     records = sort_records(load_requests())
     query = request.args.get("q", "").strip().lower()
     active_tab = request.args.get("tab", "Command")
-    if active_tab not in STUDIO_TABS:
+    visible_tabs = STUDIO_TABS if account.get("role") == "admin" else [tab for tab in STUDIO_TABS if tab != "Admin"]
+    if active_tab not in visible_tabs:
         active_tab = "Command"
 
     if query:
@@ -367,9 +504,12 @@ def studio_dashboard():
         phases=PHASES,
         priorities=PRIORITIES,
         project_types=PROJECT_TYPES,
-        tabs=STUDIO_TABS,
+        tabs=visible_tabs,
         active_tab=active_tab,
         query=query,
+        account=account,
+        users=[public_user(user) for user in load_users()],
+        is_admin=account.get("role") == "admin",
     )
 
 
@@ -416,7 +556,20 @@ def discord_login():
         "avatar": None,
         "prototype": True,
     }
-    return redirect(url_for("home"))
+    user = create_user(
+        username=f"DiscordCustomer{secrets.randbelow(9999)}",
+        email=f"discord-{secrets.token_hex(5)}@prototype.local",
+        password=secrets.token_urlsafe(16),
+        role="customer",
+    )
+    user["username"] = "Discord Prototype User"
+    users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["username"] = user["username"]
+    save_users(users)
+    login_user(user)
+    return redirect(url_for("dashboard"))
 
 
 @app.get("/auth/discord/callback")
@@ -459,13 +612,20 @@ def discord_callback():
     username = discord_user.get("username", "Discord user")
     display_name = username if discriminator in (None, "0") else f"{username}#{discriminator}"
 
-    session["discord_user"] = {
-        "id": discord_user["id"],
-        "username": display_name,
-        "avatar": discord_user.get("avatar"),
-        "prototype": False,
-    }
-    return redirect(url_for("home"))
+    email = f"discord-{discord_user['id']}@discord.local"
+    user = find_user(email)
+    if not user:
+        user = create_user(display_name, email, secrets.token_urlsafe(24), "customer")
+    users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["username"] = display_name
+            saved["avatar"] = discord_user.get("avatar")
+            user = saved
+            break
+    save_users(users)
+    login_user(user)
+    return redirect(url_for("dashboard"))
 
 
 @app.post("/requests")
@@ -483,6 +643,8 @@ def create_request():
         "deadline": request.form.get("deadline", "standard"),
         "discord_id": user["id"],
         "discord_username": user["username"],
+        "client_user_id": user["id"],
+        "client_email": user.get("email", ""),
         "score": complexity["score"],
         "tier": complexity["tier"],
         "deadline_points": complexity["deadline_points"],

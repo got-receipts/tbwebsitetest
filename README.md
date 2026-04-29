@@ -5,6 +5,7 @@ Flask prototype for an Arma Reforger mod-build intake site.
 ## Features
 
 - Discord sign-in entry point with real OAuth callback support.
+- Role-based accounts for customers, developers, and admins.
 - Separate client portal at `/client` for customer requests, progress, reference lookup, and account details.
 - Step-by-step mod questionnaire for Arma Reforger builds.
 - Complexity scoring based on selected build areas, description detail, integration risk, and deadline pressure.
@@ -12,6 +13,7 @@ Flask prototype for an Arma Reforger mod-build intake site.
 - Reference lookup endpoint and progress tracker.
 - Full studio dashboard at `/studio` with command metrics, project tabs, pipeline board,
   client view, complexity analysis, and editable project controls.
+- Animated public home page and dedicated login page with role routing.
 - Railway-ready startup files.
 
 ## Local run
@@ -23,8 +25,10 @@ python app.py
 
 Then open `http://localhost:5000`.
 
-The studio dashboard is at `http://localhost:5000/studio`. If `STUDIO_PIN` is not set,
-the dashboard opens in prototype mode.
+The login router is at `http://localhost:5000/dashboard`. It sends customers to `/client`,
+developers to `/studio`, and admins to `/studio?tab=Admin`.
+
+The studio dashboard is at `http://localhost:5000/studio`. Developer and admin accounts can access it.
 
 The client portal is at `http://localhost:5000/client`. Clients use Discord login and only
 see client-safe progress notes, not internal studio notes.
@@ -35,7 +39,8 @@ Set these environment variables in Railway:
 
 ```text
 SECRET_KEY=your-long-random-secret
-STUDIO_PIN=your-private-studio-dashboard-pin
+DEVELOPER_ACCESS_CODE=private-code-for-dev-account-creation
+ADMIN_ACCESS_CODE=private-code-for-admin-account-creation
 DISCORD_CLIENT_ID=your-discord-application-client-id
 DISCORD_CLIENT_SECRET=your-discord-application-client-secret
 DISCORD_REDIRECT_URI=https://your-railway-domain.up.railway.app/auth/discord/callback

@@ -3,3 +3,4 @@ __pycache__/
 .env
 .venv/
 data/requests.json
+data/users.json

@@ -15,10 +15,10 @@
   <body class="studio-shell">
     <aside class="studio-sidebar">
       <a class="studio-logo" href="{{ url_for('studio_dashboard') }}">
-        <span class="brand-mark">TB</span>
+        <img class="sidebar-logo-image" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
         <span>
           <strong>Thunder Buddies</strong>
-          <small>Studio Command</small>
+          <small>{{ account.role|title }} Command</small>
         </span>
       </a>
 
@@ -37,7 +37,7 @@
       </div>
 
       <a class="quiet-link" href="{{ url_for('home') }}">Public site</a>
-      <a class="quiet-link" href="{{ url_for('studio_logout') }}">Lock dashboard</a>
+      <a class="quiet-link" href="{{ url_for('studio_logout') }}">Logout</a>
     </aside>
 
     <main class="studio-main">
@@ -93,7 +93,7 @@
                   <a class="kanban-card" href="{{ url_for('request_detail', reference=record.reference) }}">
                     <span>{{ record.reference }}</span>
                     <strong>{{ record.project_name }}</strong>
-                    <small>{{ record.priority }} · {{ record.score }} pts · {{ record.assignee }}</small>
+                    <small>{{ record.priority }} | {{ record.score }} pts | {{ record.assignee }}</small>
                   </a>
                 {% else %}
                   <div class="kanban-empty">No projects</div>
@@ -116,7 +116,7 @@
                 <div>
                   <span class="reference">{{ record.reference }}</span>
                   <h3>{{ record.project_name }}</h3>
-                  <p>{{ record.discord_name }} · {{ record.unit_name or "No unit listed" }}</p>
+                  <p>{{ record.discord_name }} | {{ record.unit_name or "No unit listed" }}</p>
                 </div>
                 <div class="project-badges">
                   <span>{{ record.tier }}</span>
@@ -259,6 +259,32 @@
             <span class="label">Database</span>
             <h2>Production next step</h2>
             <p>Move <code>data/requests.json</code> into Postgres before taking real paid production work.</p>
+          </article>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Admin" and is_admin %}
+        <section class="admin-grid">
+          <article class="complexity-panel">
+            <span class="label">Admin oversight</span>
+            <h2>Account roles</h2>
+            <div class="admin-user-list">
+              {% for user in users %}
+                <div class="admin-user-row">
+                  <span>{{ user.username }}</span>
+                  <strong>{{ user.role }}</strong>
+                  <em>{{ user.email }}</em>
+                </div>
+              {% else %}
+                <p class="empty-state">No accounts yet.</p>
+              {% endfor %}
+            </div>
+          </article>
+          <article class="complexity-panel">
+            <span class="label">System access</span>
+            <h2>Role rules</h2>
+            <p>Customers route to `/client`, developers route to `/studio`, and admins route here with full studio visibility.</p>
+            <p>Set <code>DEVELOPER_ACCESS_CODE</code> and <code>ADMIN_ACCESS_CODE</code> in Railway before going live.</p>
           </article>
         </section>
       {% endif %}

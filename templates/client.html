@@ -15,7 +15,7 @@
   <body class="client-shell">
     <header class="client-topbar">
       <a class="brand" href="{{ url_for('home') }}">
-        <span class="brand-mark">TB</span>
+        <img class="nav-logo" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
         <span>
           <strong>Thunder Buddies Studios</strong>
           <small>Client Portal</small>
@@ -27,7 +27,7 @@
         {% endfor %}
       </nav>
       <div class="client-account-actions">
-        <a class="discord-button" href="{{ url_for('discord_login') }}">Discord Login</a>
+        <a class="discord-button" href="{{ url_for('dashboard') }}">Dashboard</a>
         <a class="quiet-link" href="{{ url_for('logout') }}">Logout</a>
       </div>
     </header>
@@ -76,7 +76,7 @@
               <a class="client-request-row" href="{{ url_for('request_detail', reference=record.reference) }}">
                 <span>{{ record.reference }}</span>
                 <strong>{{ record.project_name }}</strong>
-                <em>{{ phases[record.status_index] }} · {{ record.score }} pts</em>
+                <em>{{ phases[record.status_index] }} | {{ record.score }} pts</em>
               </a>
             {% else %}
               <p class="empty-state">No requests yet. Start a build request when you are ready.</p>
@@ -196,6 +196,10 @@
               {% endfor %}
             </div>
           </form>
+          <footer class="complexity-fineprint">
+            Complexity score reflects selected scope, description detail, integration risk, and deadline pressure.
+            Scores are planning estimates only and may change after studio review.
+          </footer>
         </section>
       {% endif %}
 
