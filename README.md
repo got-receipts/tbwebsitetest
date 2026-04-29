@@ -33,6 +33,16 @@ The studio dashboard is at `http://localhost:5000/studio`. Developer and admin a
 The client portal is at `http://localhost:5000/client`. Clients use Discord login and only
 see client-safe progress notes, not internal studio notes.
 
+Seeded test accounts:
+
+```text
+Admin username: admin_test
+Admin password: ThunderAdmin123!
+
+Client username: client_test
+Client password: ThunderClient123!
+```
+
 ## Railway
 
 Set these environment variables in Railway:

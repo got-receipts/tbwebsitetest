@@ -93,6 +93,20 @@ PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility pat
 STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Settings", "Admin"]
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
 ROLES = ["customer", "developer", "admin"]
+TEST_ACCOUNTS = [
+    {
+        "username": "admin_test",
+        "email": "admin@thunderbuddies.test",
+        "password": "ThunderAdmin123!",
+        "role": "admin",
+    },
+    {
+        "username": "client_test",
+        "email": "client@thunderbuddies.test",
+        "password": "ThunderClient123!",
+        "role": "customer",
+    },
+]
 
 
 def ensure_storage():
@@ -101,6 +115,34 @@ def ensure_storage():
         REQUESTS_FILE.write_text("[]", encoding="utf-8")
     if not USERS_FILE.exists():
         USERS_FILE.write_text("[]", encoding="utf-8")
+    seed_test_accounts()
+
+
+def seed_test_accounts():
+    users = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+    existing = {user.get("email", "").lower() for user in users}
+    changed = False
+
+    for account in TEST_ACCOUNTS:
+        if account["email"] in existing:
+            continue
+        users.append(
+            {
+                "id": f"usr_{secrets.token_hex(8)}",
+                "username": account["username"],
+                "email": account["email"],
+                "role": account["role"],
+                "password_hash": generate_password_hash(account["password"]),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "last_login": None,
+                "avatar": None,
+                "prototype": True,
+            }
+        )
+        changed = True
+
+    if changed:
+        USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
 
 
 def load_requests():

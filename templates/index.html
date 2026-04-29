@@ -19,7 +19,6 @@
       </a>
       <nav aria-label="Public navigation">
         <a href="#systems">Systems</a>
-        <a href="#workflow">Workflow</a>
         <a href="#intel">Intel</a>
       </nav>
       <a class="home-login-button" href="{{ url_for('login') }}">Login</a>
@@ -36,8 +35,11 @@
           <span class="label">Thunder Buddies Studios</span>
           <h1>Arma Reforger mod production command center.</h1>
           <p>
-            Customers submit builds, developers manage production, and admins oversee the
-            whole studio pipeline from one role-based system.
+            Being on console for Arma Reforger can be rough. No more sitting in
+            Discord calls wondering if your mod is actually being developed. Submit
+            the build, get a reference, follow step-by-step progress, and let the
+            developer side track Enfusion Suite time, production notes, tracing, and
+            delivery status.
           </p>
           <div class="hero-actions">
             <a class="primary-link pulse-cta" href="{{ url_for('login', mode='register') }}">Create account</a>
@@ -53,11 +55,11 @@
           <img src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
           <div class="console-line">
             <span>Client portal</span>
-            <strong>Requests, references, progress</strong>
+            <strong>Requests, references, step-by-step progress</strong>
           </div>
           <div class="console-line">
             <span>Developer dashboard</span>
-            <strong>Build phases, notes, workload</strong>
+            <strong>Enfusion time tracing, build notes, workload</strong>
           </div>
           <div class="console-line">
             <span>Admin oversight</span>
@@ -69,37 +71,22 @@
       <section id="systems" class="home-widgets">
         <article class="motion-card">
           <span class="label">Customers</span>
-          <h2>Submit and track</h2>
-          <p>Create a mod request, get a `TBS-RF` reference, and follow client-safe progress updates.</p>
+          <h2>Know what is happening</h2>
+          <p>Create a mod request, get a TBS-RF reference, and see where the build stands without chasing updates in Discord.</p>
           <a href="{{ url_for('login', mode='register') }}">Start client account</a>
         </article>
         <article class="motion-card">
           <span class="label">Developers</span>
-          <h2>Build control</h2>
-          <p>Manage project status, complexity, assignees, estimates, internal notes, and client updates.</p>
+          <h2>Trace production</h2>
+          <p>Track Enfusion Suite time, project status, assignees, estimates, internal notes, and approved client updates.</p>
           <a href="{{ url_for('login') }}">Developer login</a>
         </article>
         <article class="motion-card">
           <span class="label">Admins</span>
-          <h2>Studio oversight</h2>
-          <p>See all users, all projects, risk load, active phases, and operational health.</p>
+          <h2>Run the studio</h2>
+          <p>Oversee accounts, projects, risk load, active work, and delivery flow from one command screen.</p>
           <a href="{{ url_for('login') }}">Admin login</a>
         </article>
-      </section>
-
-      <section id="workflow" class="workflow-band">
-        <div class="section-heading">
-          <span class="label">Production workflow</span>
-          <h2>From idea to packaged Reforger mod.</h2>
-        </div>
-        <div class="workflow-steps">
-          {% for phase in phases %}
-            <button class="workflow-step" type="button" data-modal="phaseModal" data-phase="{{ phase }}">
-              <span>{{ loop.index }}</span>
-              <strong>{{ phase }}</strong>
-            </button>
-          {% endfor %}
-        </div>
       </section>
 
       <section id="intel" class="intel-strip">
@@ -129,15 +116,6 @@
         <span class="label">Role routing</span>
         <h2>One login, three dashboards.</h2>
         <p>Customer accounts go to the client portal. Developer accounts go to the production dashboard. Admin accounts open the full oversight dashboard with user and project control.</p>
-      </section>
-    </div>
-
-    <div class="modal-backdrop" id="phaseModal" aria-hidden="true">
-      <section class="site-modal" role="dialog" aria-modal="true" aria-label="Phase details">
-        <button class="modal-close" type="button" data-close-modal>Close</button>
-        <span class="label">Build phase</span>
-        <h2 id="phaseModalTitle">Production phase</h2>
-        <p>Each request moves through the studio pipeline while customers see only approved progress notes.</p>
       </section>
     </div>
 
