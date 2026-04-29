@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thunder Buddies Studios | Arma Reforger Mod Builder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('home') }}" aria-label="Thunder Buddies Studios home">
+        <span class="brand-mark">TB</span>
+        <span>
+          <strong>Thunder Buddies Studios</strong>
+          <small>Arma Reforger Mod Builds</small>
+        </span>
+      </a>
+
+      <nav aria-label="Primary navigation">
+        <a href="#builder">Builder</a>
+        <a href="#tracking">Progress</a>
+        <a href="#complexity">Scoring</a>
+        <a href="{{ url_for('client_portal') }}">Client Portal</a>
+        <a href="{{ url_for('studio_dashboard') }}">Studio</a>
+      </nav>
+
+      <a class="discord-button" href="{{ url_for('discord_login') }}">
+        <span class="discord-dot"></span>
+        Sign in with Discord
+      </a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-media" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p class="eyebrow">Custom systems, factions, kits, vehicles, terrain workflows</p>
+          <h1>Arma Reforger mods planned step by step.</h1>
+          <p>
+            Submit a build request, answer the design questionnaire, get a reference number,
+            and track your mod from discovery through packaging.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#builder">Start a request</a>
+            <a class="secondary-link" href="{{ url_for('client_portal') }}">Client portal</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="account-strip" aria-live="polite">
+        <div>
+          <span class="label">Discord account</span>
+          <strong>{{ user.username }}</strong>
+        </div>
+        <div>
+          <span class="label">Saved requests</span>
+          <strong>{{ request_count }}</strong>
+        </div>
+        <div>
+          <span class="label">Current reference</span>
+          <strong>{{ latest_reference or "Not created yet" }}</strong>
+        </div>
+      </section>
+
+      <section id="builder" class="workspace">
+        <div class="section-heading">
+          <span class="label">Build intake</span>
+          <h2>General mod questionnaire</h2>
+          <p>
+            Toggle each module on when it applies, then describe what you want. Every answer
+            contributes to the complexity score, risk profile, and estimated production lane.
+          </p>
+        </div>
+
+        <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}">
+          <input type="hidden" name="destination" value="detail" />
+          <aside class="project-panel" aria-label="Project details">
+            <label>
+              Project name
+              <input name="project_name" type="text" placeholder="Task Force Thunder overhaul" required />
+            </label>
+            <label>
+              Discord username
+              <input name="discord_name" type="text" value="{{ user.username }}" required />
+            </label>
+            <label>
+              Target server or unit
+              <input name="unit_name" type="text" placeholder="Unit, community, or private server" />
+            </label>
+            <label>
+              Deadline pressure
+              <select id="deadline" name="deadline">
+                <option value="standard">Standard timeline</option>
+                <option value="soon">Needed in 2-4 weeks</option>
+                <option value="rush">Rush build</option>
+              </select>
+            </label>
+
+            <div class="score-box">
+              <span class="label">Live complexity</span>
+              <strong id="complexityScore">0 pts</strong>
+              <span id="complexityTier">Recon</span>
+              <meter id="complexityMeter" min="0" max="220" value="0"></meter>
+            </div>
+
+            <button class="submit-button" type="submit">Create build reference</button>
+          </aside>
+
+          <div class="question-list">
+            {% for module in modules %}
+              <article class="question-card" data-base="{{ module.base }}" data-risk="{{ module.risk }}">
+                <div class="question-head">
+                  <div class="question-title">
+                    <strong>{{ module.title }}</strong>
+                    <span>{{ module.prompt }}</span>
+                  </div>
+                  <label class="switch" aria-label="Enable {{ module.title }}">
+                    <input name="{{ module.id }}_enabled" type="checkbox" />
+                    <span></span>
+                  </label>
+                </div>
+                <div class="question-body">
+                  <label>
+                    Build notes
+                    <textarea
+                      name="{{ module.id }}_description"
+                      placeholder="Describe the Reforger behavior, assets, dependencies, or player experience you want."
+                    ></textarea>
+                  </label>
+                  <span class="mini-score">Base {{ module.base }} + risk {{ module.risk }} + description detail</span>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </form>
+      </section>
+
+      <section id="tracking" class="tracker">
+        <div class="section-heading">
+          <span class="label">Reference tracker</span>
+          <h2>Look up build progress</h2>
+          <p>Enter the generated reference number to reopen the request and see the current phase.</p>
+        </div>
+        <div class="lookup">
+          <input id="lookupInput" type="text" placeholder="TBS-RF-0000" />
+          <button id="lookupButton" type="button">Search</button>
+        </div>
+        <div id="lookupResult" class="progress-result">
+          <span class="empty-state">No reference selected yet.</span>
+        </div>
+      </section>
+
+      <section id="complexity" class="complexity-guide">
+        <div class="section-heading">
+          <span class="label">Point logic</span>
+          <h2>How complexity is calculated</h2>
+        </div>
+        <div class="guide-grid">
+          <article>
+            <strong>Scope points</strong>
+            <p>Each selected module adds base effort for design, implementation, editor setup, and QA.</p>
+          </article>
+          <article>
+            <strong>Description weight</strong>
+            <p>Longer descriptions add planning weight because they usually mean more custom behavior.</p>
+          </article>
+          <article>
+            <strong>Integration risk</strong>
+            <p>Weapons, vehicles, AI, networking, and persistence increase risk points.</p>
+          </article>
+          <article>
+            <strong>Timeline pressure</strong>
+            <p>Rush requests add coordination points so the estimate reflects production reality.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Studio Dashboard | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="studio-shell">
+    <aside class="studio-sidebar">
+      <a class="studio-logo" href="{{ url_for('studio_dashboard') }}">
+        <span class="brand-mark">TB</span>
+        <span>
+          <strong>Thunder Buddies</strong>
+          <small>Studio Command</small>
+        </span>
+      </a>
+
+      <nav class="studio-tabs" aria-label="Studio dashboard tabs">
+        {% for tab in tabs %}
+          <a class="{{ 'active' if active_tab == tab else '' }}" href="{{ url_for('studio_dashboard', tab=tab, q=query) }}">
+            {{ tab }}
+          </a>
+        {% endfor %}
+      </nav>
+
+      <div class="studio-sidebar-card">
+        <span class="label">Production load</span>
+        <strong>{{ metrics.active }} active</strong>
+        <p>{{ metrics.avg_complexity }} average complexity points</p>
+      </div>
+
+      <a class="quiet-link" href="{{ url_for('home') }}">Public site</a>
+      <a class="quiet-link" href="{{ url_for('studio_logout') }}">Lock dashboard</a>
+    </aside>
+
+    <main class="studio-main">
+      <header class="studio-header">
+        <div>
+          <span class="label">Arma Reforger operations</span>
+          <h1>{{ active_tab }}</h1>
+        </div>
+        <form class="studio-search" method="get" action="{{ url_for('studio_dashboard') }}">
+          <input type="hidden" name="tab" value="{{ active_tab }}" />
+          <input name="q" type="search" value="{{ query }}" placeholder="Search reference, client, unit, project" />
+          <button type="submit">Search</button>
+        </form>
+      </header>
+
+      {% if active_tab == "Command" %}
+        <section class="studio-metrics">
+          <article>
+            <span class="label">Total requests</span>
+            <strong>{{ metrics.total }}</strong>
+            <p>All generated build references</p>
+          </article>
+          <article>
+            <span class="label">Active work</span>
+            <strong>{{ metrics.active }}</strong>
+            <p>Requests not yet packaged</p>
+          </article>
+          <article>
+            <span class="label">High risk</span>
+            <strong>{{ metrics.high_risk }}</strong>
+            <p>Heavy complexity or priority flags</p>
+          </article>
+          <article>
+            <span class="label">Completed</span>
+            <strong>{{ metrics.completed }}</strong>
+            <p>Packaged delivery phase</p>
+          </article>
+        </section>
+
+        <section class="studio-board">
+          <div class="studio-section-title">
+            <h2>Live production board</h2>
+            <span>{{ records|length }} visible projects</span>
+          </div>
+          <div class="kanban">
+            {% for phase in metrics.by_phase %}
+              <section class="kanban-column">
+                <header>
+                  <strong>{{ phase.name }}</strong>
+                  <span>{{ phase.count }}</span>
+                </header>
+                {% for record in phase.records[:4] %}
+                  <a class="kanban-card" href="{{ url_for('request_detail', reference=record.reference) }}">
+                    <span>{{ record.reference }}</span>
+                    <strong>{{ record.project_name }}</strong>
+                    <small>{{ record.priority }} · {{ record.score }} pts · {{ record.assignee }}</small>
+                  </a>
+                {% else %}
+                  <div class="kanban-empty">No projects</div>
+                {% endfor %}
+              </section>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Projects" %}
+        <section class="project-table">
+          <div class="studio-section-title">
+            <h2>Project control</h2>
+            <span>Update phase, owner, quote state, and notes</span>
+          </div>
+          {% for record in records %}
+            <article class="studio-project">
+              <div class="studio-project-summary">
+                <div>
+                  <span class="reference">{{ record.reference }}</span>
+                  <h3>{{ record.project_name }}</h3>
+                  <p>{{ record.discord_name }} · {{ record.unit_name or "No unit listed" }}</p>
+                </div>
+                <div class="project-badges">
+                  <span>{{ record.tier }}</span>
+                  <span>{{ record.score }} pts</span>
+                  <span>{{ record.priority }}</span>
+                </div>
+              </div>
+
+              <form class="studio-edit-form" method="post" action="{{ url_for('studio_update_request', reference=record.reference) }}">
+                <input type="hidden" name="return_tab" value="Projects" />
+                <label>
+                  Phase
+                  <select name="status_index">
+                    {% for phase in phases %}
+                      <option value="{{ loop.index0 }}" {{ "selected" if loop.index0 == record.status_index else "" }}>{{ phase }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Priority
+                  <select name="priority">
+                    {% for priority in priorities %}
+                      <option value="{{ priority }}" {{ "selected" if priority == record.priority else "" }}>{{ priority }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Type
+                  <select name="project_type">
+                    {% for type in project_types %}
+                      <option value="{{ type }}" {{ "selected" if type == record.project_type else "" }}>{{ type }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Assignee
+                  <input name="assignee" value="{{ record.assignee }}" />
+                </label>
+                <label>
+                  Budget
+                  <input name="budget_state" value="{{ record.budget_state }}" />
+                </label>
+                <label class="wide">
+                  Client-facing progress note
+                  <textarea name="client_visible_notes">{{ record.client_visible_notes }}</textarea>
+                </label>
+                <label class="wide">
+                  Internal studio notes
+                  <textarea name="studio_notes">{{ record.studio_notes }}</textarea>
+                </label>
+                <button class="submit-button" type="submit">Save project</button>
+              </form>
+            </article>
+          {% else %}
+            <div class="empty-dashboard">No requests match this search yet.</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Pipeline" %}
+        <section class="pipeline-grid">
+          {% for phase in metrics.by_phase %}
+            <article class="pipeline-phase">
+              <div class="pipeline-ring" style="--value: {{ phase.count }}">{{ phase.count }}</div>
+              <div>
+                <h3>{{ phase.name }}</h3>
+                <p>
+                  {% if phase.records %}
+                    {{ phase.records|map(attribute="reference")|join(", ") }}
+                  {% else %}
+                    No active references in this phase.
+                  {% endif %}
+                </p>
+              </div>
+            </article>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Clients" %}
+        <section class="client-grid">
+          {% for record in records %}
+            <article>
+              <span class="label">{{ record.reference }}</span>
+              <h3>{{ record.discord_name }}</h3>
+              <p>{{ record.project_name }}</p>
+              <dl>
+                <div><dt>Unit</dt><dd>{{ record.unit_name or "Not listed" }}</dd></div>
+                <div><dt>Deadline</dt><dd>{{ record.deadline }}</dd></div>
+                <div><dt>Current phase</dt><dd>{{ phases[record.status_index] }}</dd></div>
+              </dl>
+            </article>
+          {% else %}
+            <div class="empty-dashboard">No clients match this search.</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Complexity" %}
+        <section class="complexity-dashboard">
+          <article class="complexity-panel">
+            <h2>Module demand</h2>
+            {% for module, count in metrics.module_counts %}
+              <div class="module-demand">
+                <span>{{ module }}</span>
+                <strong>{{ count }}</strong>
+              </div>
+            {% else %}
+              <p class="empty-state">No module data yet.</p>
+            {% endfor %}
+          </article>
+          <article class="complexity-panel">
+            <h2>Highest complexity</h2>
+            {% for record in records[:8] %}
+              <div class="risk-row">
+                <span>{{ record.reference }}</span>
+                <strong>{{ record.score }} pts</strong>
+                <em>{{ record.tier }}</em>
+              </div>
+            {% else %}
+              <p class="empty-state">No requests yet.</p>
+            {% endfor %}
+          </article>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Settings" %}
+        <section class="settings-grid">
+          <article>
+            <span class="label">Railway env</span>
+            <h2>Studio security</h2>
+            <p>Set <code>STUDIO_PIN</code> in Railway to lock this dashboard behind a PIN.</p>
+          </article>
+          <article>
+            <span class="label">Discord OAuth</span>
+            <h2>Account login</h2>
+            <p>Set <code>DISCORD_CLIENT_ID</code>, <code>DISCORD_CLIENT_SECRET</code>, and <code>DISCORD_REDIRECT_URI</code>.</p>
+          </article>
+          <article>
+            <span class="label">Database</span>
+            <h2>Production next step</h2>
+            <p>Move <code>data/requests.json</code> into Postgres before taking real paid production work.</p>
+          </article>
+        </section>
+      {% endif %}
+    </main>
+  </body>
+</html>

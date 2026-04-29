@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ record.reference }} | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('home') }}">
+        <span class="brand-mark">TB</span>
+        <span>
+          <strong>Thunder Buddies Studios</strong>
+          <small>Arma Reforger Mod Builds</small>
+        </span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="{{ url_for('home') }}#builder">Builder</a>
+        <a href="{{ url_for('home') }}#tracking">Progress</a>
+        <a href="{{ url_for('client_portal') }}">Client Portal</a>
+        <a href="{{ url_for('studio_dashboard') }}">Studio</a>
+      </nav>
+    </header>
+
+    <main class="detail-page">
+      <section class="detail-hero">
+        <span class="label">Build reference</span>
+        <h1>{{ record.reference }}</h1>
+        <p>{{ record.project_name }} for {{ record.unit_name or "an unnamed unit" }}</p>
+      </section>
+
+      <section class="detail-grid">
+        <article class="progress-result">
+          <div class="progress-header">
+            <div>
+              <span class="label">Complexity</span>
+              <strong class="reference">{{ record.score }} pts · {{ record.tier }}</strong>
+            </div>
+            <div>
+              <span class="label">Discord</span>
+              <strong>{{ record.discord_name }}</strong>
+            </div>
+          </div>
+
+          <div class="phase-list">
+            {% for phase in phases %}
+              {% set phase_state = "done" if loop.index0 < record.status_index else ("current" if loop.index0 == record.status_index else "") %}
+              <div class="phase {{ phase_state }}">
+                <span class="phase-dot"></span>
+                <div>
+                  <strong>{{ phase }}</strong>
+                  <span>{{ "In progress" if loop.index0 == record.status_index else ("Complete" if loop.index0 < record.status_index else "Queued") }}</span>
+                </div>
+                <em>Step {{ loop.index }} / {{ phases|length }}</em>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <aside class="progress-result">
+          <span class="label">Selected modules</span>
+          {% if record.selected_modules %}
+            <div class="module-summary">
+              {% for module in record.selected_modules %}
+                <article>
+                  <strong>{{ module.title }}</strong>
+                  <span>{{ module.points }} pts</span>
+                  <p>{{ module.description or "No extra description provided." }}</p>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-state">No modules were selected.</p>
+          {% endif %}
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

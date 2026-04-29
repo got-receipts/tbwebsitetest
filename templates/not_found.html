@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reference not found | Thunder Buddies Studios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="detail-page">
+      <section class="detail-hero">
+        <span class="label">Reference tracker</span>
+        <h1>Reference not found</h1>
+        <p>{{ reference }} is not in the current request log.</p>
+        <a class="primary-link" href="{{ url_for('home') }}#tracking">Try another reference</a>
+      </section>
+    </main>
+  </body>
+</html>

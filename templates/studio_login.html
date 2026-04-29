@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Studio Login | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="studio-shell">
+    <main class="studio-login">
+      <section class="studio-login-card">
+        <span class="brand-mark">TB</span>
+        <span class="label">Thunder Buddies Studios</span>
+        <h1>Studio command access</h1>
+        <p>
+          Open the internal project dashboard for Arma Reforger builds, client requests,
+          pipeline tracking, and scope reviews.
+        </p>
+
+        {% if error %}
+          <div class="studio-alert">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('studio_login_post') }}">
+          {% if has_pin %}
+            <label>
+              Studio PIN
+              <input name="pin" type="password" placeholder="Enter studio PIN" required />
+            </label>
+          {% else %}
+            <div class="studio-alert soft">
+              No <code>STUDIO_PIN</code> is set, so prototype studio access is open.
+            </div>
+          {% endif %}
+          <button class="submit-button" type="submit">Enter dashboard</button>
+        </form>
+        <a class="quiet-link" href="{{ url_for('home') }}">Return to public site</a>
+      </section>
+    </main>
+  </body>
+</html>
