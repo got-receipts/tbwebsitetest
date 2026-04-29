@@ -3,6 +3,7 @@ import os
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -17,6 +18,11 @@ USERS_FILE = DATA_DIR / "users.json"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+
+DISCORD_HEADERS = {
+    "User-Agent": "ThunderBuddiesStudiosOAuth/1.0 (+https://fleettest-production.up.railway.app)",
+    "Accept": "application/json",
+}
 
 
 MODULES = [
@@ -492,6 +498,16 @@ def refresh_freelance_pool(records):
             record["last_updated"] = now.isoformat()
             changed = True
     return changed
+
+
+def read_http_error(exc):
+    try:
+        body = exc.read().decode("utf-8", errors="replace")
+    except Exception:
+        body = ""
+    if body:
+        return f"HTTP {exc.code}: {body[:500]}"
+    return f"HTTP {exc.code}: {exc.reason}"
 
 
 def make_reference(existing):
@@ -992,15 +1008,18 @@ def discord_login():
     client_id = os.environ.get("DISCORD_CLIENT_ID")
     redirect_uri = os.environ.get("DISCORD_REDIRECT_URI")
     if client_id and redirect_uri:
+        state = secrets.token_urlsafe(24)
+        session["discord_oauth_state"] = state
         params = urlencode(
             {
                 "client_id": client_id,
                 "redirect_uri": redirect_uri,
                 "response_type": "code",
                 "scope": "identify",
+                "state": state,
             }
         )
-        return redirect(f"https://discord.com/api/oauth2/authorize?{params}")
+        return redirect(f"https://discord.com/oauth2/authorize?{params}")
 
     session["discord_user"] = {
         "id": f"prototype-{secrets.randbelow(999999)}",
@@ -1027,12 +1046,35 @@ def discord_login():
 @app.get("/auth/discord/callback")
 def discord_callback():
     code = request.args.get("code")
+    returned_state = request.args.get("state")
+    expected_state = session.pop("discord_oauth_state", None)
     client_id = os.environ.get("DISCORD_CLIENT_ID")
     client_secret = os.environ.get("DISCORD_CLIENT_SECRET")
     redirect_uri = os.environ.get("DISCORD_REDIRECT_URI")
 
+    if request.args.get("error"):
+        return render_template(
+            "login.html",
+            mode="login",
+            error=f"Discord rejected the login: {request.args.get('error_description', request.args['error'])}",
+            next_url="",
+        ), 400
+
+    if not expected_state or not returned_state or not secrets.compare_digest(expected_state, returned_state):
+        return render_template(
+            "login.html",
+            mode="login",
+            error="Discord login state did not match. Please try signing in again.",
+            next_url="",
+        ), 400
+
     if not code or not client_id or not client_secret or not redirect_uri:
-        return redirect(url_for("home"))
+        return render_template(
+            "login.html",
+            mode="login",
+            error="Discord login is missing required server configuration.",
+            next_url="",
+        ), 500
 
     token_body = urlencode(
         {
@@ -1044,21 +1086,68 @@ def discord_callback():
         }
     ).encode("utf-8")
     token_request = Request(
-        "https://discord.com/api/oauth2/token",
+        "https://discord.com/api/v10/oauth2/token",
         data=token_body,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers={
+            **DISCORD_HEADERS,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
         method="POST",
     )
 
-    with urlopen(token_request, timeout=10) as response:
-        token_payload = json.loads(response.read().decode("utf-8"))
+    try:
+        with urlopen(token_request, timeout=10) as response:
+            token_payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = read_http_error(exc)
+        return render_template(
+            "login.html",
+            mode="login",
+            error=f"Discord token exchange failed. Check the Railway redirect URI and Discord client secret. ({detail})",
+            next_url="",
+        ), 502
+    except (URLError, TimeoutError) as exc:
+        return render_template(
+            "login.html",
+            mode="login",
+            error=f"Discord token exchange failed. Discord may be unreachable from Railway. ({exc})",
+            next_url="",
+        ), 502
+
+    access_token = token_payload.get("access_token")
+    if not access_token:
+        return render_template(
+            "login.html",
+            mode="login",
+            error="Discord did not return an access token. Please try again.",
+            next_url="",
+        ), 502
 
     user_request = Request(
-        "https://discord.com/api/users/@me",
-        headers={"Authorization": f"Bearer {token_payload['access_token']}"},
+        "https://discord.com/api/v10/users/@me",
+        headers={
+            **DISCORD_HEADERS,
+            "Authorization": f"Bearer {access_token}",
+        },
     )
-    with urlopen(user_request, timeout=10) as response:
-        discord_user = json.loads(response.read().decode("utf-8"))
+    try:
+        with urlopen(user_request, timeout=10) as response:
+            discord_user = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = read_http_error(exc)
+        return render_template(
+            "login.html",
+            mode="login",
+            error=f"Could not fetch your Discord profile. ({detail})",
+            next_url="",
+        ), 502
+    except (URLError, TimeoutError) as exc:
+        return render_template(
+            "login.html",
+            mode="login",
+            error=f"Could not fetch your Discord profile. Discord may be unreachable from Railway. ({exc})",
+            next_url="",
+        ), 502
 
     discriminator = discord_user.get("discriminator")
     username = discord_user.get("username", "Discord user")
