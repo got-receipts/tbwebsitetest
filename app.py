@@ -324,7 +324,8 @@ PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
 STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Settings", "Admin"]
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
-ROLES = ["customer", "developer", "admin"]
+ROLES = ["customer", "developer", "moderator", "tester", "admin"]
+STAFF_ROLES = {"developer", "moderator", "tester", "admin"}
 TEST_ACCOUNTS = [
     {
         "username": "admin_test",
@@ -583,6 +584,37 @@ def dashboard_metrics(records):
     }
 
 
+def economy_metrics(records):
+    active = [record for record in records if record.get("status_index", 0) < len(PHASES) - 1]
+    completed = [record for record in records if record.get("status_index", 0) >= len(PHASES) - 1]
+    pooled = [record for record in records if record.get("pool_status") in {"auto_review", "freelance_pool", "claimed_freelance"}]
+    total_points = sum(record.get("score", 0) for record in records)
+    active_points = sum(record.get("score", 0) for record in active)
+    pool_points = sum(record.get("score", 0) for record in pooled)
+    completed_points = sum(record.get("score", 0) for record in completed)
+    point_rate = 7.5
+    return {
+        "total_points": total_points,
+        "active_points": active_points,
+        "pool_points": pool_points,
+        "completed_points": completed_points,
+        "circulating_points": active_points + pool_points,
+        "estimated_pipeline_value": round(active_points * point_rate),
+        "estimated_pool_value": round(pool_points * point_rate),
+        "estimated_completed_value": round(completed_points * point_rate),
+        "point_rate": point_rate,
+        "average_eta": round(sum(record.get("eta_days", 0) for record in records) / len(records)) if records else 0,
+    }
+
+
+def role_counts(users):
+    counts = {role: 0 for role in ROLES}
+    for user in users:
+        role = user.get("role", "customer")
+        counts[role] = counts.get(role, 0) + 1
+    return counts
+
+
 def client_metrics(records):
     active = [record for record in records if record.get("status_index", 0) < len(PHASES) - 1]
     review = [record for record in records if record.get("status_index", 0) == 5]
@@ -761,7 +793,7 @@ def login_user(user):
 
 
 def studio_unlocked():
-    return current_user().get("role") in {"developer", "admin"}
+    return current_user().get("role") in STAFF_ROLES
 
 
 def admin_unlocked():
@@ -860,7 +892,7 @@ def dashboard():
     role = current_user().get("role")
     if role == "admin":
         return redirect(url_for("studio_dashboard", tab="Admin"))
-    if role == "developer":
+    if role in STAFF_ROLES:
         return redirect(url_for("studio_dashboard"))
     if role == "customer":
         return redirect(url_for("client_portal"))
@@ -947,6 +979,9 @@ def studio_dashboard():
         account=account,
         users=[public_user(user) for user in load_users()],
         is_admin=account.get("role") == "admin",
+        roles=ROLES,
+        economy=economy_metrics(records),
+        role_counts=role_counts(load_users()),
         pool_records=[
             record
             for record in records
@@ -1001,6 +1036,24 @@ def studio_claim_request(reference):
     record["last_updated"] = datetime.now(timezone.utc).isoformat()
     save_requests(records)
     return redirect(url_for("studio_dashboard", tab="Freelance Pool"))
+
+
+@app.post("/admin/users/<user_id>/role")
+def admin_update_user_role(user_id):
+    if not admin_unlocked():
+        return redirect(url_for("login"))
+
+    new_role = request.form.get("role", "customer")
+    if new_role not in ROLES:
+        new_role = "customer"
+
+    users = load_users()
+    for user in users:
+        if user["id"] == user_id:
+            user["role"] = new_role
+            break
+    save_users(users)
+    return redirect(url_for("studio_dashboard", tab="Admin"))
 
 
 @app.get("/login/discord")

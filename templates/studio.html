@@ -295,45 +295,92 @@
       {% if active_tab == "Settings" %}
         <section class="settings-grid">
           <article>
-            <span class="label">Railway env</span>
-            <h2>Studio security</h2>
-            <p>Set <code>STUDIO_PIN</code> in Railway to lock this dashboard behind a PIN.</p>
+            <span class="label">Production economy</span>
+            <h2>{{ economy.circulating_points }} points circulating</h2>
+            <p>Active production points plus freelance pool points currently moving through the studio.</p>
           </article>
           <article>
-            <span class="label">Discord OAuth</span>
-            <h2>Account login</h2>
-            <p>Set <code>DISCORD_CLIENT_ID</code>, <code>DISCORD_CLIENT_SECRET</code>, and <code>DISCORD_REDIRECT_URI</code>.</p>
+            <span class="label">Pipeline value</span>
+            <h2>${{ economy.estimated_pipeline_value }}</h2>
+            <p>Estimated value using {{ economy.point_rate }} dollars per production point.</p>
           </article>
           <article>
-            <span class="label">Database</span>
-            <h2>Production next step</h2>
-            <p>Move <code>data/requests.json</code> into Postgres before taking real paid production work.</p>
+            <span class="label">Average ETA</span>
+            <h2>{{ economy.average_eta }} days</h2>
+            <p>Average estimated timeline across all tracked tickets.</p>
           </article>
         </section>
       {% endif %}
 
       {% if active_tab == "Admin" and is_admin %}
+        <section class="economy-dashboard">
+          <article>
+            <span class="label">Total production points</span>
+            <strong>{{ economy.total_points }}</strong>
+            <p>All points created by client build requests.</p>
+          </article>
+          <article>
+            <span class="label">Active points</span>
+            <strong>{{ economy.active_points }}</strong>
+            <p>Points currently inside studio production lanes.</p>
+          </article>
+          <article>
+            <span class="label">Pool points</span>
+            <strong>{{ economy.pool_points }}</strong>
+            <p>Points waiting in auto review, freelance pool, or freelance claim.</p>
+          </article>
+          <article>
+            <span class="label">Completed value</span>
+            <strong>${{ economy.estimated_completed_value }}</strong>
+            <p>Estimated delivered value at current point rate.</p>
+          </article>
+        </section>
+
         <section class="admin-grid">
           <article class="complexity-panel">
             <span class="label">Admin oversight</span>
-            <h2>Account roles</h2>
+            <h2>User permissions</h2>
             <div class="admin-user-list">
               {% for user in users %}
-                <div class="admin-user-row">
+                <form class="admin-user-row" method="post" action="{{ url_for('admin_update_user_role', user_id=user.id) }}">
                   <span>{{ user.username }}</span>
-                  <strong>{{ user.role }}</strong>
                   <em>{{ user.email }}</em>
-                </div>
+                  <select name="role">
+                    {% for role in roles %}
+                      <option value="{{ role }}" {{ "selected" if role == user.role else "" }}>{{ role|title }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit">Update</button>
+                </form>
               {% else %}
                 <p class="empty-state">No accounts yet.</p>
               {% endfor %}
             </div>
           </article>
           <article class="complexity-panel">
-            <span class="label">System access</span>
-            <h2>Role rules</h2>
-            <p>Customers route to `/client`, developers route to `/studio`, and admins route here with full studio visibility.</p>
-            <p>Set <code>DEVELOPER_ACCESS_CODE</code> and <code>ADMIN_ACCESS_CODE</code> in Railway before going live.</p>
+            <span class="label">Role distribution</span>
+            <h2>Access map</h2>
+            <div class="module-summary">
+              {% for role, count in role_counts.items() %}
+                <article>
+                  <strong>{{ role|title }}</strong>
+                  <span>{{ count }} account{{ "" if count == 1 else "s" }}</span>
+                  <p>
+                    {% if role == "customer" %}
+                      Client portal access only.
+                    {% elif role == "tester" %}
+                      Studio visibility for QA and testing workflows.
+                    {% elif role == "moderator" %}
+                      Studio visibility for queue moderation and project review.
+                    {% elif role == "developer" %}
+                      Developer dashboard and freelance pool access.
+                    {% else %}
+                      Full admin oversight and permission control.
+                    {% endif %}
+                  </p>
+                </article>
+              {% endfor %}
+            </div>
           </article>
         </section>
       {% endif %}
