@@ -173,27 +173,68 @@
               <button class="submit-button" type="submit">Submit to studio</button>
             </aside>
             <div class="question-list">
-              {% for module in modules %}
-                <article class="question-card" data-base="{{ module.base }}" data-risk="{{ module.risk }}">
-                  <div class="question-head">
-                    <div class="question-title">
-                      <strong>{{ module.title }}</strong>
-                      <span>{{ module.prompt }}</span>
-                    </div>
-                    <label class="switch" aria-label="Enable {{ module.title }}">
-                      <input name="{{ module.id }}_enabled" type="checkbox" />
-                      <span></span>
+              <article class="builder-option-shell">
+                <div class="studio-section-title">
+                  <h2>Pick build systems</h2>
+                  <span>Official Workbench-informed categories</span>
+                </div>
+                <div class="builder-tabs">
+                  {% for group in build_option_groups %}
+                    <section class="builder-tab-panel">
+                      <h3>{{ group.title }}</h3>
+                      <div class="option-check-grid">
+                        {% for option in group.options %}
+                          <label class="option-check">
+                            <input name="buildopt_{{ option.id }}" type="checkbox" data-points="{{ option.points }}" />
+                            <span>
+                              <strong>{{ option.label }}</strong>
+                              <em>{{ option.points }} pts</em>
+                            </span>
+                          </label>
+                        {% endfor %}
+                      </div>
+                    </section>
+                  {% endfor %}
+                </div>
+              </article>
+
+              <article class="builder-option-shell">
+                <div class="studio-section-title">
+                  <h2>Workshop dependencies</h2>
+                  <span>Seeded from the current Reforger Workshop listing</span>
+                </div>
+                <div class="dependency-grid">
+                  {% for dependency in workshop_dependencies %}
+                    <label class="dependency-check">
+                      <input name="dep_{{ dependency.id }}" type="checkbox" data-points="{{ dependency.points }}" />
+                      <span>
+                        <strong>{{ dependency.label }}</strong>
+                        <em>by {{ dependency.author }} | {{ dependency.points }} pts</em>
+                      </span>
                     </label>
+                  {% endfor %}
+                </div>
+              </article>
+
+              <article class="question-card" data-base="0" data-risk="0">
+                <div class="question-head">
+                  <div class="question-title">
+                    <strong>Anything custom not listed?</strong>
+                    <span>Use this only when the checkboxes do not cover the request.</span>
                   </div>
-                  <div class="question-body">
-                    <label>
-                      Build notes
-                      <textarea name="{{ module.id }}_description" placeholder="Describe what you want built."></textarea>
-                    </label>
-                    <span class="mini-score">Base {{ module.base }} + risk {{ module.risk }} + description detail</span>
-                  </div>
-                </article>
-              {% endfor %}
+                  <label class="switch" aria-label="Enable custom notes">
+                    <input name="custom_enabled" type="checkbox" />
+                    <span></span>
+                  </label>
+                </div>
+                <div class="question-body">
+                  <label>
+                    Custom notes
+                    <textarea name="custom_description" placeholder="Add anything the checkbox system did not cover."></textarea>
+                  </label>
+                  <span class="mini-score">Custom notes add detail points only.</span>
+                </div>
+              </article>
             </div>
           </form>
           <footer class="complexity-fineprint">

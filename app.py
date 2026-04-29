@@ -78,6 +78,232 @@ MODULES = [
     },
 ]
 
+BUILD_OPTION_GROUPS = [
+    {
+        "id": "content",
+        "title": "Content & Identity",
+        "options": [
+            {"id": "custom_faction", "label": "Custom faction", "points": 14},
+            {"id": "uniforms_patches", "label": "Uniforms, patches, insignia", "points": 12},
+            {"id": "ranks_roles", "label": "Ranks, roles, unit structure", "points": 8},
+            {"id": "arsenal_setup", "label": "Arsenal/loadout setup", "points": 10},
+            {"id": "localization", "label": "String/localization entries", "points": 6},
+        ],
+    },
+    {
+        "id": "gameplay",
+        "title": "Gameplay Systems",
+        "options": [
+            {"id": "scenario_flow", "label": "Scenario/game mode flow", "points": 18},
+            {"id": "objectives_tasks", "label": "Objectives and tasks", "points": 14},
+            {"id": "ai_spawns", "label": "AI spawns and patrols", "points": 20},
+            {"id": "respawn_rules", "label": "Respawn rules", "points": 12},
+            {"id": "admin_tools", "label": "Admin tools", "points": 18},
+            {"id": "persistence", "label": "Progression or persistence", "points": 30},
+        ],
+    },
+    {
+        "id": "assets",
+        "title": "Assets & Vehicles",
+        "options": [
+            {"id": "weapon_configs", "label": "Weapons or attachment configs", "points": 22},
+            {"id": "vehicle_variants", "label": "Vehicle variants", "points": 26},
+            {"id": "vehicle_physics", "label": "Vehicle physics/tuning", "points": 24},
+            {"id": "textures_materials", "label": "Textures and materials", "points": 14},
+            {"id": "animations", "label": "Animation work", "points": 28},
+            {"id": "particles", "label": "Particles and effects", "points": 16},
+            {"id": "audio", "label": "Audio editor work", "points": 16},
+        ],
+    },
+    {
+        "id": "world",
+        "title": "World & Terrain",
+        "options": [
+            {"id": "world_editor", "label": "World Editor composition", "points": 20},
+            {"id": "bases_checkpoints", "label": "Bases/checkpoints", "points": 16},
+            {"id": "terrain_generation", "label": "Terrain generator work", "points": 32},
+            {"id": "lighting_weather", "label": "Lighting/time/weather setup", "points": 12},
+            {"id": "props_prefabs", "label": "Props and prefab placement", "points": 14},
+        ],
+    },
+    {
+        "id": "technical",
+        "title": "Technical Workbench",
+        "options": [
+            {"id": "script_editor", "label": "Script Editor work", "points": 24},
+            {"id": "resource_manager", "label": "Resource Manager setup", "points": 10},
+            {"id": "behavior_editor", "label": "Behavior Editor nodes", "points": 22},
+            {"id": "procedural_animation", "label": "Procedural animation", "points": 28},
+            {"id": "workbench_links", "label": "Workbench links/tracing", "points": 8},
+            {"id": "dependency_setup", "label": "Dependency setup", "points": 12},
+        ],
+    },
+    {
+        "id": "delivery",
+        "title": "Testing & Delivery",
+        "options": [
+            {"id": "console_testing", "label": "Console/client testing", "points": 16},
+            {"id": "multiplayer_qa", "label": "Multiplayer QA", "points": 22},
+            {"id": "conflict_testing", "label": "Dependency conflict testing", "points": 18},
+            {"id": "packaging_publish", "label": "Packaging/publishing", "points": 14},
+            {"id": "documentation", "label": "Client documentation", "points": 8},
+        ],
+    },
+]
+
+BUILD_OPTION_GROUPS.extend(
+    [
+        {
+            "id": "terrain_detail",
+            "title": "Terrain Production",
+            "options": [
+                {"id": "terrain_research", "label": "Terrain research/reference pass", "points": 10},
+                {"id": "heightfield_import", "label": "Heightfield import", "points": 20},
+                {"id": "satmap_masks", "label": "Satellite map and surface masks", "points": 22},
+                {"id": "surface_blending", "label": "Surface blending/block planning", "points": 18},
+                {"id": "object_layers", "label": "Object layer organization", "points": 14},
+                {"id": "settlement_layers", "label": "Settlement/village layers", "points": 18},
+                {"id": "toponym_layers", "label": "Toponyms/place names", "points": 10},
+                {"id": "road_network", "label": "Road network", "points": 24},
+                {"id": "forest_generators", "label": "Forest generators", "points": 22},
+                {"id": "water_bodies", "label": "Water bodies", "points": 20},
+                {"id": "rivers", "label": "Rivers", "points": 24},
+                {"id": "powerlines", "label": "Powerlines", "points": 14},
+                {"id": "shorelines", "label": "Shoreline pass", "points": 18},
+                {"id": "seabed_prep", "label": "Seabed landscape preparation", "points": 18},
+                {"id": "terrain_performance", "label": "Terrain performance pass", "points": 26},
+                {"id": "terrain_iteration_repo", "label": "Version-controlled terrain workflow", "points": 10},
+            ],
+        },
+        {
+            "id": "scenario_framework",
+            "title": "Scenario Framework",
+            "options": [
+                {"id": "scenario_setup", "label": "Scenario Framework setup", "points": 18},
+                {"id": "sf_components", "label": "Framework components", "points": 16},
+                {"id": "sf_plugins", "label": "Framework plugins", "points": 16},
+                {"id": "sf_logic", "label": "Scenario logic", "points": 20},
+                {"id": "sf_getters", "label": "Getters/data lookup", "points": 12},
+                {"id": "sf_actions", "label": "Actions/interactions", "points": 18},
+                {"id": "sf_dynamic_spawn", "label": "Dynamic spawn/despawn", "points": 24},
+                {"id": "sf_save_load", "label": "Save/load behavior", "points": 26},
+                {"id": "gm_integration", "label": "Game Master integration", "points": 16},
+                {"id": "conflict_integration", "label": "Conflict mode integration", "points": 18},
+                {"id": "scenario_samples", "label": "Sample/reference scenario setup", "points": 10},
+            ],
+        },
+        {
+            "id": "ui_layouts",
+            "title": "UI Layouts & Widgets",
+            "options": [
+                {"id": "hud_display", "label": "HUD/display layout", "points": 18},
+                {"id": "menu_layout", "label": "Menu layout", "points": 20},
+                {"id": "dialog_layout", "label": "Dialog/popup layout", "points": 18},
+                {"id": "widget_buttons", "label": "Buttons and controls", "points": 12},
+                {"id": "widget_scrollbars", "label": "Scrollbars/lists", "points": 12},
+                {"id": "inventory_ui", "label": "Inventory-style UI", "points": 24},
+                {"id": "field_manual_ui", "label": "Field manual/info UI", "points": 16},
+                {"id": "chimera_menu_preset", "label": "Chimera menu preset scripting", "points": 18},
+                {"id": "ui_script_class", "label": "UI script class", "points": 20},
+                {"id": "ui_preload_persistence", "label": "UI preload/persistence setup", "points": 12},
+            ],
+        },
+        {
+            "id": "asset_pipeline",
+            "title": "Asset Pipeline",
+            "options": [
+                {"id": "prefabs_basics", "label": "Prefab setup", "points": 14},
+                {"id": "data_overrides", "label": "Data modding/overrides", "points": 18},
+                {"id": "weapon_asset_prep", "label": "Weapon mesh preparation", "points": 20},
+                {"id": "weapon_prefab_config", "label": "Weapon prefab configuration", "points": 26},
+                {"id": "weapon_sockets", "label": "Weapon sockets/attachments", "points": 22},
+                {"id": "weapon_skeleton", "label": "Weapon skeleton setup", "points": 24},
+                {"id": "weapon_animation", "label": "Weapon animation", "points": 28},
+                {"id": "weapon_sounds", "label": "Weapon sounds", "points": 16},
+                {"id": "vehicle_sim_params", "label": "Vehicle simulation parameters", "points": 24},
+                {"id": "vehicle_turrets", "label": "Vehicle turrets", "points": 28},
+                {"id": "character_prefabs", "label": "Character prefabs", "points": 20},
+                {"id": "gear_retextures", "label": "Gear retextures", "points": 14},
+                {"id": "prop_import", "label": "Prop import", "points": 18},
+                {"id": "colliders", "label": "Collider setup", "points": 18},
+                {"id": "custom_actions", "label": "Custom actions", "points": 20},
+                {"id": "fbx_orientation", "label": "FBX orientation/import cleanup", "points": 12},
+            ],
+        },
+        {
+            "id": "scripting_deep",
+            "title": "Scripting & Modules",
+            "options": [
+                {"id": "script_folder_structure", "label": "Script folder structure", "points": 10},
+                {"id": "modder_tag_conflicts", "label": "Modder tag/class conflict prevention", "points": 8},
+                {"id": "core_module", "label": "Core module scripting", "points": 22},
+                {"id": "gamelib_module", "label": "GameLib module scripting", "points": 22},
+                {"id": "game_module", "label": "Game module scripting", "points": 24},
+                {"id": "workbench_module", "label": "Workbench module scripting", "points": 22},
+                {"id": "workbenchgame_module", "label": "WorkbenchGame module scripting", "points": 22},
+                {"id": "scoring_changes", "label": "Scoring/rules changes", "points": 18},
+                {"id": "script_wizard", "label": "Script Wizard setup", "points": 8},
+                {"id": "debug_logs", "label": "Debug/logging pass", "points": 10},
+                {"id": "enfusion_trace_hooks", "label": "Enfusion tracing hooks", "points": 18},
+            ],
+        },
+        {
+            "id": "workbench_tools",
+            "title": "Workbench Tools",
+            "options": [
+                {"id": "resource_browser", "label": "Resource Browser work", "points": 10},
+                {"id": "resource_options", "label": "Resource Manager options", "points": 10},
+                {"id": "world_editor_plugins", "label": "World Editor plugins", "points": 18},
+                {"id": "world_editor_tools", "label": "World Editor tools", "points": 18},
+                {"id": "animation_state_machine", "label": "Animation state machine", "points": 24},
+                {"id": "animation_human_vars", "label": "Human animation variables", "points": 18},
+                {"id": "vehicle_action_commands", "label": "Vehicle action commands", "points": 22},
+                {"id": "audio_variables", "label": "Audio variables", "points": 14},
+                {"id": "audio_directivity", "label": "Audio directivity", "points": 16},
+                {"id": "audio_dsp_nodes", "label": "Audio DSP nodes", "points": 18},
+                {"id": "behavior_nodes", "label": "Behavior Editor nodes", "points": 22},
+                {"id": "string_tables", "label": "String tables", "points": 8},
+                {"id": "procedural_nodes", "label": "Procedural animation nodes", "points": 24},
+                {"id": "workbench_metadata", "label": "Workbench metadata", "points": 8},
+                {"id": "enfusion_protocol_links", "label": "enfusion:// Workbench links", "points": 8},
+            ],
+        },
+        {
+            "id": "dependency_management",
+            "title": "Dependency Management",
+            "options": [
+                {"id": "scan_projects", "label": "Scan existing addon projects", "points": 8},
+                {"id": "dependency_tree", "label": "Dependency tree review", "points": 16},
+                {"id": "dependency_presets", "label": "Workbench presets", "points": 10},
+                {"id": "missing_guid_lookup", "label": "Missing GUID lookup", "points": 12},
+                {"id": "dependency_conflict_log", "label": "Conflict log review", "points": 16},
+                {"id": "experimental_branch", "label": "Experimental branch compatibility", "points": 18},
+                {"id": "clean_mod_cache", "label": "Clean-state mod cache test", "points": 10},
+                {"id": "console_dependency_test", "label": "Console dependency install test", "points": 16},
+            ],
+        },
+    ]
+)
+
+WORKSHOP_DEPENDENCIES = [
+    {"id": "where_am_i", "label": "Where Am I", "author": "ValterB", "points": 4},
+    {"id": "project_redline_uh60", "label": "Project Redline - UH-60", "author": "Ralian", "points": 14},
+    {"id": "better_hits_effects", "label": "BetterHitsEffects -ABANDONED-", "author": "Ashyl", "points": 8},
+    {"id": "better_tracers", "label": "BetterTracers -ABANDONED-", "author": "Ashyl", "points": 8},
+    {"id": "project_redline_core", "label": "Project Redline - Core", "author": "Redline Mod Team", "points": 12},
+    {"id": "ris_laser_attachments", "label": "RIS Laser Attachments", "author": "ceo_of_bacon", "points": 8},
+    {"id": "better_muzzle_flash", "label": "BetterMuzzleFlash -ABANDONED-", "author": "Ashyl", "points": 8},
+    {"id": "night_vision_system", "label": "Night Vision System", "author": "Greg3d_fr", "points": 10},
+    {"id": "stryker", "label": "STRYKER", "author": "TheSpaceStrider", "points": 14},
+    {"id": "rhs_status_quo", "label": "RHS - Status Quo", "author": "Red Hammer Studios", "points": 18},
+    {"id": "ah64d_apache", "label": "AH-64D Apache", "author": "TheSpaceStrider", "points": 16},
+    {"id": "sample_mod_new_car", "label": "Sample Mod - New Car", "author": "Bohemia Interactive", "points": 6},
+    {"id": "jltv", "label": "Joint Light Tactical Vehicle", "author": "TheSpaceStrider", "points": 14},
+    {"id": "task_force_mattock_weapons", "label": "Task Force Mattock Weapons", "author": "TheAussieMerc", "points": 14},
+    {"id": "m1_abrams", "label": "M1 Abrams", "author": "TheSpaceStrider", "points": 16},
+    {"id": "m110_dmr", "label": "M110 DMR", "author": "ceo_of_bacon", "points": 10},
+]
+
 PHASES = [
     "Request received",
     "Design review",
@@ -304,6 +530,8 @@ def client_metrics(records):
 def calculate_complexity(form):
     score = 0
     selected = []
+    selected_build_options = []
+    selected_dependencies = []
 
     for module in MODULES:
         enabled = form.get(f"{module['id']}_enabled") == "on"
@@ -325,19 +553,58 @@ def calculate_complexity(form):
             }
         )
 
+    for group in BUILD_OPTION_GROUPS:
+        for option in group["options"]:
+            if form.get(f"buildopt_{option['id']}") != "on":
+                continue
+            score += option["points"]
+            selected_build_options.append(
+                {
+                    "group": group["title"],
+                    "id": option["id"],
+                    "label": option["label"],
+                    "points": option["points"],
+                }
+            )
+
+    for dependency in WORKSHOP_DEPENDENCIES:
+        if form.get(f"dep_{dependency['id']}") != "on":
+            continue
+        score += dependency["points"]
+        selected_dependencies.append(dependency)
+
+    custom_description = form.get("custom_description", "").strip()
+    if form.get("custom_enabled") == "on" and custom_description:
+        detail_points = min(24, max(8, len(custom_description.split()) // 6))
+        score += detail_points
+        selected_build_options.append(
+            {
+                "group": "Custom",
+                "id": "custom_notes",
+                "label": "Custom request notes",
+                "points": detail_points,
+            }
+        )
+
     deadline = form.get("deadline", "standard")
     deadline_points = {"standard": 0, "soon": 12, "rush": 28}.get(deadline, 0)
     score += deadline_points
 
-    if len(selected) >= 4:
+    if len(selected) + len(selected_build_options) >= 4:
         score += 16
-    if len(selected) >= 6:
+    if len(selected) + len(selected_build_options) >= 6:
         score += 24
+    if len(selected_dependencies) >= 3:
+        score += 12
+    if len(selected_dependencies) >= 6:
+        score += 18
 
     return {
         "score": score,
         "tier": complexity_tier(score),
         "selected_modules": selected,
+        "selected_build_options": selected_build_options,
+        "selected_dependencies": selected_dependencies,
         "deadline_points": deadline_points,
     }
 
@@ -491,6 +758,8 @@ def client_portal():
         metrics=client_metrics(records),
         phases=PHASES,
         modules=MODULES,
+        build_option_groups=BUILD_OPTION_GROUPS,
+        workshop_dependencies=WORKSHOP_DEPENDENCIES,
         tabs=CLIENT_TABS,
         active_tab=active_tab,
     )
@@ -691,6 +960,8 @@ def create_request():
         "tier": complexity["tier"],
         "deadline_points": complexity["deadline_points"],
         "selected_modules": complexity["selected_modules"],
+        "selected_build_options": complexity["selected_build_options"],
+        "selected_dependencies": complexity["selected_dependencies"],
         "status_index": 0,
         "priority": "Normal",
         "project_type": "Client mod",

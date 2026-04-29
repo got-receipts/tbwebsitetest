@@ -48,8 +48,17 @@ function calculateScore() {
     score += base + risk + detail;
   });
 
+  document.querySelectorAll(".option-check input:checked, .dependency-check input:checked").forEach((input) => {
+    score += Number(input.dataset.points || 0);
+    selectedCount += 1;
+  });
+
+  const dependencyCount = document.querySelectorAll(".dependency-check input:checked").length;
+
   if (selectedCount >= 4) score += 16;
   if (selectedCount >= 6) score += 24;
+  if (dependencyCount >= 3) score += 12;
+  if (dependencyCount >= 6) score += 18;
 
   scoreLabel.textContent = `${score} pts`;
   tierLabel.textContent = tierFor(score);
@@ -114,6 +123,10 @@ cards.forEach((card) => {
   card.addEventListener("change", calculateScore);
 });
 
+document.querySelectorAll(".option-check input, .dependency-check input").forEach((input) => {
+  input.addEventListener("change", calculateScore);
+});
+
 deadline?.addEventListener("change", calculateScore);
 lookupButton?.addEventListener("click", lookupReference);
 lookupInput?.addEventListener("keydown", (event) => {
@@ -121,7 +134,9 @@ lookupInput?.addEventListener("keydown", (event) => {
 });
 
 form?.addEventListener("submit", (event) => {
-  const selected = cards.some((card) => card.querySelector("input[type='checkbox']").checked);
+  const selected =
+    cards.some((card) => card.querySelector("input[type='checkbox']").checked) ||
+    document.querySelectorAll(".option-check input:checked, .dependency-check input:checked").length > 0;
   if (!selected) {
     event.preventDefault();
     scoreLabel.textContent = "Pick a module";

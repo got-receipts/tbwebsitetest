@@ -723,6 +723,75 @@ meter {
   padding: 0;
 }
 
+.builder-option-shell {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.builder-tabs {
+  display: grid;
+  gap: 14px;
+}
+
+.builder-tab-panel {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.builder-tab-panel h3 {
+  margin: 0 0 12px;
+}
+
+.option-check-grid,
+.dependency-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.option-check,
+.dependency-check {
+  cursor: pointer;
+}
+
+.option-check input,
+.dependency-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option-check span,
+.dependency-check span {
+  background: #0a1015;
+  border: 1px solid #2d3c49;
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-height: 76px;
+  padding: 12px;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.option-check input:checked + span,
+.dependency-check input:checked + span {
+  background: rgba(71, 213, 195, 0.12);
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+}
+
+.option-check em,
+.dependency-check em {
+  color: var(--gold);
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
 .studio-sidebar {
   background: rgba(10, 16, 21, 0.92);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -871,11 +940,17 @@ meter {
 .kanban-card small,
 .kanban-empty,
 .studio-project-summary p,
+.studio-selection-preview,
 .client-grid p,
 .settings-grid p,
 .complexity-panel em,
 .pipeline-phase p {
   color: var(--muted);
+}
+
+.studio-selection-preview {
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .studio-board {

@@ -117,6 +117,12 @@
                   <span class="reference">{{ record.reference }}</span>
                   <h3>{{ record.project_name }}</h3>
                   <p>{{ record.discord_name }} | {{ record.unit_name or "No unit listed" }}</p>
+                  {% if record.selected_build_options or record.selected_dependencies %}
+                    <p class="studio-selection-preview">
+                      {{ record.selected_build_options|length }} systems selected |
+                      {{ record.selected_dependencies|length }} dependencies selected
+                    </p>
+                  {% endif %}
                 </div>
                 <div class="project-badges">
                   <span>{{ record.tier }}</span>

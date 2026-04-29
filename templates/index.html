@@ -19,7 +19,6 @@
       </a>
       <nav aria-label="Public navigation">
         <a href="#systems">Systems</a>
-        <a href="#intel">Intel</a>
       </nav>
       <a class="home-login-button" href="{{ url_for('login') }}">Login</a>
     </header>
@@ -86,21 +85,6 @@
           <h2>Run the studio</h2>
           <p>Oversee accounts, projects, risk load, active work, and delivery flow from one command screen.</p>
           <a href="{{ url_for('login') }}">Admin login</a>
-        </article>
-      </section>
-
-      <section id="intel" class="intel-strip">
-        <article>
-          <strong>{{ request_count }}</strong>
-          <span>Your saved requests</span>
-        </article>
-        <article>
-          <strong>{{ latest_reference or "TBS-RF" }}</strong>
-          <span>Latest reference</span>
-        </article>
-        <article>
-          <strong>3</strong>
-          <span>Account roles</span>
         </article>
       </section>
 

@@ -66,8 +66,22 @@
 
         <aside class="progress-result">
           <span class="label">Selected modules</span>
-          {% if record.selected_modules %}
+          {% if record.selected_modules or record.selected_build_options or record.selected_dependencies %}
             <div class="module-summary">
+              {% for option in record.selected_build_options %}
+                <article>
+                  <strong>{{ option.label }}</strong>
+                  <span>{{ option.group }} | {{ option.points }} pts</span>
+                  <p>Selected structured build system.</p>
+                </article>
+              {% endfor %}
+              {% for dependency in record.selected_dependencies %}
+                <article>
+                  <strong>{{ dependency.label }}</strong>
+                  <span>Workshop dependency | {{ dependency.points }} pts</span>
+                  <p>Author: {{ dependency.author }}</p>
+                </article>
+              {% endfor %}
               {% for module in record.selected_modules %}
                 <article>
                   <strong>{{ module.title }}</strong>
