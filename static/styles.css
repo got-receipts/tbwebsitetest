@@ -719,6 +719,21 @@ meter {
   line-height: 1.65;
 }
 
+.eta-badge,
+.pool-note {
+  border: 1px solid rgba(246, 198, 91, 0.22);
+  border-radius: 8px;
+  color: #f6d990;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 10px;
+}
+
+.pool-note {
+  border-color: rgba(71, 213, 195, 0.24);
+  color: #bff8ef;
+}
+
 .client-build-workspace {
   padding: 0;
 }
@@ -756,6 +771,8 @@ meter {
 .option-check,
 .dependency-check {
   cursor: pointer;
+  display: grid;
+  gap: 8px;
 }
 
 .option-check input,
@@ -790,6 +807,16 @@ meter {
   font-size: 0.8rem;
   font-style: normal;
   font-weight: 800;
+}
+
+.reason-field {
+  display: none;
+  min-height: 84px;
+}
+
+.option-check input:checked ~ .reason-field,
+.dependency-check input:checked ~ .reason-field {
+  display: block;
 }
 
 .studio-sidebar {
@@ -920,7 +947,7 @@ meter {
 .studio-metrics {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   margin-bottom: 18px;
 }
 

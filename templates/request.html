@@ -44,6 +44,10 @@
               <strong class="reference">{{ record.score }} pts | {{ record.tier }}</strong>
             </div>
             <div>
+              <span class="label">ETA</span>
+              <strong>{{ record.eta_days }} days</strong>
+            </div>
+            <div>
               <span class="label">Discord</span>
               <strong>{{ record.discord_name }}</strong>
             </div>
@@ -71,15 +75,15 @@
               {% for option in record.selected_build_options %}
                 <article>
                   <strong>{{ option.label }}</strong>
-                  <span>{{ option.group }} | {{ option.points }} pts</span>
-                  <p>Selected structured build system.</p>
+                  <span>{{ option.group }} | {{ option.points }} pts | {{ option.eta_days }} days</span>
+                  <p>{{ option.reason or "Selected structured build system." }}</p>
                 </article>
               {% endfor %}
               {% for dependency in record.selected_dependencies %}
                 <article>
                   <strong>{{ dependency.label }}</strong>
-                  <span>Workshop dependency | {{ dependency.points }} pts</span>
-                  <p>Author: {{ dependency.author }}</p>
+                  <span>Workshop dependency | {{ dependency.points }} pts | {{ dependency.eta_days }} days</span>
+                  <p>{{ dependency.reason or ("Author: " ~ dependency.author) }}</p>
                 </article>
               {% endfor %}
               {% for module in record.selected_modules %}

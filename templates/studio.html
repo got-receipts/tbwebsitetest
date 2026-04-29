@@ -75,6 +75,11 @@
             <strong>{{ metrics.completed }}</strong>
             <p>Packaged delivery phase</p>
           </article>
+          <article>
+            <span class="label">Freelance pool</span>
+            <strong>{{ metrics.freelance_pool }}</strong>
+            <p>{{ metrics.auto_review }} in auto review</p>
+          </article>
         </section>
 
         <section class="studio-board">
@@ -127,6 +132,7 @@
                 <div class="project-badges">
                   <span>{{ record.tier }}</span>
                   <span>{{ record.score }} pts</span>
+                  <span>{{ record.eta_days }} days</span>
                   <span>{{ record.priority }}</span>
                 </div>
               </div>
@@ -246,6 +252,43 @@
               <p class="empty-state">No requests yet.</p>
             {% endfor %}
           </article>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Freelance Pool" %}
+        <section class="project-table">
+          <div class="studio-section-title">
+            <h2>Freelance pool</h2>
+            <span>Builds over 30 days release here after 90 seconds of auto review</span>
+          </div>
+          {% for record in pool_records %}
+            <article class="studio-project">
+              <div class="studio-project-summary">
+                <div>
+                  <span class="reference">{{ record.reference }}</span>
+                  <h3>{{ record.project_name }}</h3>
+                  <p>{{ record.discord_name }} | ETA {{ record.eta_days }} days | {{ record.pool_status|replace("_", " ")|title }}</p>
+                  <p class="studio-selection-preview">{{ record.client_visible_notes }}</p>
+                </div>
+                <div class="project-badges">
+                  <span>{{ record.score }} pts</span>
+                  <span>{{ record.selected_build_options|length }} systems</span>
+                  <span>{{ record.selected_dependencies|length }} deps</span>
+                </div>
+              </div>
+              {% if record.pool_status == "freelance_pool" %}
+                <form method="post" action="{{ url_for('studio_claim_request', reference=record.reference) }}">
+                  <button class="submit-button" type="submit">Claim freelance review</button>
+                </form>
+              {% elif record.pool_status == "auto_review" %}
+                <p class="pool-note">Auto review is waiting for the 90-second release window.</p>
+              {% else %}
+                <p class="pool-note">Claimed by {{ record.claimed_by }}.</p>
+              {% endif %}
+            </article>
+          {% else %}
+            <div class="empty-dashboard">No over-30-day builds are in review or freelance pool.</div>
+          {% endfor %}
         </section>
       {% endif %}
 

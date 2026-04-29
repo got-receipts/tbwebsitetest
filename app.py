@@ -316,7 +316,7 @@ PHASES = [
 
 PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
-STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Settings", "Admin"]
+STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Settings", "Admin"]
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
 ROLES = ["customer", "developer", "admin"]
 TEST_ACCOUNTS = [
@@ -374,7 +374,10 @@ def seed_test_accounts():
 def load_requests():
     ensure_storage()
     records = json.loads(REQUESTS_FILE.read_text(encoding="utf-8"))
-    return [normalize_record(record) for record in records]
+    normalized = [normalize_record(record) for record in records]
+    if refresh_freelance_pool(normalized):
+        save_requests(normalized)
+    return normalized
 
 
 def save_requests(records):
@@ -444,7 +447,51 @@ def normalize_record(record):
     record.setdefault("milestones", [])
     record.setdefault("assets_needed", [])
     record.setdefault("status_index", 0)
+    record.setdefault("eta_days", estimate_days_from_score(record.get("score", 0)))
+    record.setdefault("timeline_summary", [])
+    record.setdefault("pool_status", "standard")
+    record.setdefault("auto_review_until", None)
+    record.setdefault("claimed_by", "")
+    record.setdefault("claimed_by_id", "")
     return record
+
+
+def parse_iso(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def estimate_days_from_score(score):
+    return max(1, min(120, round(score / 18)))
+
+
+def timeline_days(points, reason_points=0, kind="system"):
+    divisor = 12 if kind == "system" else 16
+    return max(1, round((points + reason_points) / divisor))
+
+
+def refresh_freelance_pool(records):
+    now = datetime.now(timezone.utc)
+    changed = False
+    for record in records:
+        if record.get("pool_status") != "auto_review":
+            continue
+        release_at = parse_iso(record.get("auto_review_until"))
+        if release_at and now >= release_at:
+            record["pool_status"] = "freelance_pool"
+            record["priority"] = "Backlog"
+            record["client_visible_notes"] = (
+                "This request is above the 30-day Thunder Buddies production lane. "
+                "Auto review is complete and the ticket is now available in the freelance pool."
+            )
+            record["notes"] = record["client_visible_notes"]
+            record["last_updated"] = now.isoformat()
+            changed = True
+    return changed
 
 
 def make_reference(existing):
@@ -488,6 +535,8 @@ def sort_records(records):
 
 def dashboard_metrics(records):
     active = [record for record in records if record.get("status_index", 0) < len(PHASES) - 1]
+    freelance_pool = [record for record in records if record.get("pool_status") == "freelance_pool"]
+    auto_review = [record for record in records if record.get("pool_status") == "auto_review"]
     total_complexity = sum(record.get("score", 0) for record in active)
     high_risk = [
         record
@@ -510,6 +559,8 @@ def dashboard_metrics(records):
         "active": len(active),
         "completed": len(records) - len(active),
         "high_risk": len(high_risk),
+        "freelance_pool": len(freelance_pool),
+        "auto_review": len(auto_review),
         "avg_complexity": round(total_complexity / len(active)) if active else 0,
         "by_phase": by_phase,
         "module_counts": sorted(module_counts.items(), key=lambda item: item[1], reverse=True),
@@ -532,6 +583,7 @@ def calculate_complexity(form):
     selected = []
     selected_build_options = []
     selected_dependencies = []
+    timeline_summary = []
 
     for module in MODULES:
         enabled = form.get(f"{module['id']}_enabled") == "on"
@@ -557,31 +609,81 @@ def calculate_complexity(form):
         for option in group["options"]:
             if form.get(f"buildopt_{option['id']}") != "on":
                 continue
-            score += option["points"]
+            reason = form.get(f"buildopt_{option['id']}_reason", "").strip()
+            reason_points = min(28, len(reason.split()) // 5)
+            option_score = option["points"] + reason_points
+            eta_days = timeline_days(option["points"], reason_points, "system")
+            score += option_score
             selected_build_options.append(
                 {
                     "group": group["title"],
                     "id": option["id"],
                     "label": option["label"],
-                    "points": option["points"],
+                    "points": option_score,
+                    "base_points": option["points"],
+                    "reason_points": reason_points,
+                    "reason": reason,
+                    "eta_days": eta_days,
+                }
+            )
+            timeline_summary.append(
+                {
+                    "label": option["label"],
+                    "type": group["title"],
+                    "eta_days": eta_days,
+                    "points": option_score,
                 }
             )
 
     for dependency in WORKSHOP_DEPENDENCIES:
         if form.get(f"dep_{dependency['id']}") != "on":
             continue
-        score += dependency["points"]
-        selected_dependencies.append(dependency)
+        reason = form.get(f"dep_{dependency['id']}_reason", "").strip()
+        reason_points = min(18, len(reason.split()) // 6)
+        dependency_score = dependency["points"] + reason_points
+        eta_days = timeline_days(dependency["points"], reason_points, "dependency")
+        score += dependency_score
+        selected_dependencies.append(
+            {
+                **dependency,
+                "points": dependency_score,
+                "base_points": dependency["points"],
+                "reason_points": reason_points,
+                "reason": reason,
+                "eta_days": eta_days,
+            }
+        )
+        timeline_summary.append(
+            {
+                "label": dependency["label"],
+                "type": "Workshop dependency",
+                "eta_days": eta_days,
+                "points": dependency_score,
+            }
+        )
 
     custom_description = form.get("custom_description", "").strip()
     if form.get("custom_enabled") == "on" and custom_description:
         detail_points = min(24, max(8, len(custom_description.split()) // 6))
+        eta_days = timeline_days(detail_points, 0, "system")
         score += detail_points
         selected_build_options.append(
             {
                 "group": "Custom",
                 "id": "custom_notes",
                 "label": "Custom request notes",
+                "points": detail_points,
+                "base_points": detail_points,
+                "reason_points": 0,
+                "reason": custom_description,
+                "eta_days": eta_days,
+            }
+        )
+        timeline_summary.append(
+            {
+                "label": "Custom request notes",
+                "type": "Custom",
+                "eta_days": eta_days,
                 "points": detail_points,
             }
         )
@@ -599,12 +701,20 @@ def calculate_complexity(form):
     if len(selected_dependencies) >= 6:
         score += 18
 
+    eta_days = max(1, sum(item["eta_days"] for item in timeline_summary))
+    if deadline == "soon":
+        eta_days += 2
+    if deadline == "rush":
+        eta_days += 4
+
     return {
         "score": score,
         "tier": complexity_tier(score),
         "selected_modules": selected,
         "selected_build_options": selected_build_options,
         "selected_dependencies": selected_dependencies,
+        "timeline_summary": timeline_summary,
+        "eta_days": eta_days,
         "deadline_points": deadline_points,
     }
 
@@ -821,6 +931,11 @@ def studio_dashboard():
         account=account,
         users=[public_user(user) for user in load_users()],
         is_admin=account.get("role") == "admin",
+        pool_records=[
+            record
+            for record in records
+            if record.get("pool_status") in {"auto_review", "freelance_pool", "claimed_freelance"}
+        ],
     )
 
 
@@ -844,6 +959,32 @@ def studio_update_request(reference):
 
     save_requests(records)
     return redirect(url_for("studio_dashboard", tab=request.form.get("return_tab", "Projects")))
+
+
+@app.post("/studio/requests/<reference>/claim")
+def studio_claim_request(reference):
+    account = current_user()
+    records = load_requests()
+    record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
+    if not record:
+        return render_template("not_found.html", reference=reference), 404
+    if record.get("pool_status") != "freelance_pool":
+        return redirect(url_for("studio_dashboard", tab="Freelance Pool"))
+
+    record["pool_status"] = "claimed_freelance"
+    record["claimed_by"] = account["username"]
+    record["claimed_by_id"] = account["id"]
+    record["assignee"] = account["username"]
+    record["priority"] = "Normal"
+    record["status_index"] = 2
+    record["client_visible_notes"] = (
+        f"This request has been claimed from the freelance pool by {account['username']} "
+        "for estimate review. Thunder Buddies direct production is still not started."
+    )
+    record["notes"] = record["client_visible_notes"]
+    record["last_updated"] = datetime.now(timezone.utc).isoformat()
+    save_requests(records)
+    return redirect(url_for("studio_dashboard", tab="Freelance Pool"))
 
 
 @app.get("/login/discord")
@@ -945,6 +1086,27 @@ def create_request():
     user = current_user()
     complexity = calculate_complexity(request.form)
     reference = make_reference(records)
+    now = datetime.now(timezone.utc)
+    eta_days = complexity["eta_days"]
+    over_internal_lane = eta_days > 30
+    client_note = "Request received. Thunder Buddies Studios will review scope and confirm the production lane."
+    pool_status = "standard"
+    auto_review_until = None
+    assignee = "Unassigned"
+    priority = "Normal"
+    status_index = 0
+
+    if over_internal_lane:
+        pool_status = "auto_review"
+        auto_review_until = (now.timestamp() + 90)
+        auto_review_until = datetime.fromtimestamp(auto_review_until, timezone.utc).isoformat()
+        assignee = "Auto review"
+        priority = "Backlog"
+        status_index = 1
+        client_note = (
+            "This request currently estimates above 30 days. Thunder Buddies will not proceed directly. "
+            "It is in auto review and will release to the freelance pool after 90 seconds if still over lane."
+        )
 
     record = {
         "reference": reference,
@@ -962,16 +1124,22 @@ def create_request():
         "selected_modules": complexity["selected_modules"],
         "selected_build_options": complexity["selected_build_options"],
         "selected_dependencies": complexity["selected_dependencies"],
-        "status_index": 0,
-        "priority": "Normal",
+        "timeline_summary": complexity["timeline_summary"],
+        "eta_days": eta_days,
+        "pool_status": pool_status,
+        "auto_review_until": auto_review_until,
+        "claimed_by": "",
+        "claimed_by_id": "",
+        "status_index": status_index,
+        "priority": priority,
         "project_type": "Client mod",
-        "assignee": "Unassigned",
+        "assignee": assignee,
         "budget_state": "Not quoted",
         "studio_notes": "",
-        "client_visible_notes": "Request received. Thunder Buddies Studios will review scope and confirm the production lane.",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "last_updated": datetime.now(timezone.utc).isoformat(),
-        "notes": "Request received. Thunder Buddies Studios will review scope and confirm the production lane.",
+        "client_visible_notes": client_note,
+        "created_at": now.isoformat(),
+        "last_updated": now.isoformat(),
+        "notes": client_note,
     }
     records.append(record)
     save_requests(records)

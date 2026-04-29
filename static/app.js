@@ -3,6 +3,7 @@ const cards = Array.from(document.querySelectorAll(".question-card"));
 const scoreLabel = document.querySelector("#complexityScore");
 const tierLabel = document.querySelector("#complexityTier");
 const meter = document.querySelector("#complexityMeter");
+const timelineEstimate = document.querySelector("#timelineEstimate");
 const deadline = document.querySelector("#deadline");
 const lookupInput = document.querySelector("#lookupInput");
 const lookupButton = document.querySelector("#lookupButton");
@@ -31,6 +32,7 @@ function calculateScore() {
   if (!scoreLabel || !tierLabel || !meter) return;
   let score = deadlinePoints();
   let selectedCount = 0;
+  let etaDays = 0;
 
   cards.forEach((card) => {
     const checkbox = card.querySelector("input[type='checkbox']");
@@ -46,10 +48,20 @@ function calculateScore() {
     const detail = Math.min(18, Math.floor(words / 8));
     selectedCount += 1;
     score += base + risk + detail;
+    etaDays += Math.max(1, Math.round((base + risk + detail) / 12));
   });
 
   document.querySelectorAll(".option-check input:checked, .dependency-check input:checked").forEach((input) => {
-    score += Number(input.dataset.points || 0);
+    const parent = input.closest(".option-check, .dependency-check");
+    const reason = parent?.querySelector(".reason-field")?.value.trim() || "";
+    const words = reason.split(/\s+/).filter(Boolean).length;
+    const reasonPoints = parent?.classList.contains("dependency-check")
+      ? Math.min(18, Math.floor(words / 6))
+      : Math.min(28, Math.floor(words / 5));
+    const basePoints = Number(input.dataset.points || 0);
+    const itemScore = basePoints + reasonPoints;
+    score += itemScore;
+    etaDays += Math.max(1, Math.round(itemScore / (parent?.classList.contains("dependency-check") ? 16 : 12)));
     selectedCount += 1;
   });
 
@@ -62,6 +74,15 @@ function calculateScore() {
 
   scoreLabel.textContent = `${score} pts`;
   tierLabel.textContent = tierFor(score);
+  if (deadline?.value === "soon") etaDays += 2;
+  if (deadline?.value === "rush") etaDays += 4;
+  etaDays = Math.max(1, etaDays);
+  if (timelineEstimate) {
+    timelineEstimate.textContent =
+      etaDays > 30
+        ? `ETA: ${etaDays} days | auto review then freelance pool`
+        : `ETA: ${etaDays} days`;
+  }
   meter.value = Math.min(score, Number(meter.max));
 }
 
@@ -125,6 +146,10 @@ cards.forEach((card) => {
 
 document.querySelectorAll(".option-check input, .dependency-check input").forEach((input) => {
   input.addEventListener("change", calculateScore);
+});
+
+document.querySelectorAll(".reason-field").forEach((field) => {
+  field.addEventListener("input", calculateScore);
 });
 
 deadline?.addEventListener("change", calculateScore);

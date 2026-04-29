@@ -112,6 +112,14 @@
                   <span class="reference">{{ record.reference }}</span>
                   <h3>{{ record.project_name }}</h3>
                   <p>{{ record.client_visible_notes or record.notes }}</p>
+                  <p class="eta-badge">Estimated timeline: {{ record.eta_days }} days</p>
+                  {% if record.pool_status == "auto_review" %}
+                    <p class="pool-note">Auto review: over 30 days. Releases to freelance pool after 90 seconds.</p>
+                  {% elif record.pool_status == "freelance_pool" %}
+                    <p class="pool-note">Available in freelance pool for developer claim.</p>
+                  {% elif record.pool_status == "claimed_freelance" %}
+                    <p class="pool-note">Claimed by {{ record.claimed_by }} for freelance estimate review.</p>
+                  {% endif %}
                 </div>
                 <div class="phase-list">
                   {% for phase in phases %}
@@ -168,6 +176,7 @@
                 <span class="label">Live complexity</span>
                 <strong id="complexityScore">0 pts</strong>
                 <span id="complexityTier">Recon</span>
+                <span id="timelineEstimate">ETA: 1 day</span>
                 <meter id="complexityMeter" min="0" max="220" value="0"></meter>
               </div>
               <button class="submit-button" type="submit">Submit to studio</button>
@@ -190,6 +199,11 @@
                               <strong>{{ option.label }}</strong>
                               <em>{{ option.points }} pts</em>
                             </span>
+                            <textarea
+                              class="reason-field"
+                              name="buildopt_{{ option.id }}_reason"
+                              placeholder="What needs to be done for {{ option.label }}?"
+                            ></textarea>
                           </label>
                         {% endfor %}
                       </div>
@@ -211,6 +225,11 @@
                         <strong>{{ dependency.label }}</strong>
                         <em>by {{ dependency.author }} | {{ dependency.points }} pts</em>
                       </span>
+                      <textarea
+                        class="reason-field"
+                        name="dep_{{ dependency.id }}_reason"
+                        placeholder="Why is this dependency needed and how should it be used?"
+                      ></textarea>
                     </label>
                   {% endfor %}
                 </div>
