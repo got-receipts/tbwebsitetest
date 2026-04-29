@@ -460,7 +460,101 @@ def normalize_record(record):
     record.setdefault("auto_review_until", None)
     record.setdefault("claimed_by", "")
     record.setdefault("claimed_by_id", "")
+    record.setdefault("client_addons", [])
+    record.setdefault("task_checklist", generate_task_checklist(record))
     return record
+
+
+def procedure_for_item(label, reason, item_type):
+    reason_text = reason or "Use the selected request details as the acceptance target."
+    return [
+        {
+            "title": f"Review {label}",
+            "detail": f"Read the client reason and confirm the desired outcome. Reason: {reason_text}",
+            "client_visible": True,
+        },
+        {
+            "title": f"Plan {label}",
+            "detail": f"Map required Workbench resources, dependencies, scripts, prefabs, and QA checks for {item_type}.",
+            "client_visible": True,
+        },
+        {
+            "title": f"Build {label}",
+            "detail": "Complete the implementation in Enfusion Workbench and record production notes.",
+            "client_visible": True,
+        },
+        {
+            "title": f"Test {label}",
+            "detail": "Run in-editor and multiplayer/client validation, then mark ready for review.",
+            "client_visible": True,
+        },
+    ]
+
+
+def generate_task_checklist(record):
+    tasks = []
+    selected_items = []
+    for option in record.get("selected_build_options", []):
+        selected_items.append(
+            {
+                "label": option.get("label", "Selected system"),
+                "reason": option.get("reason", ""),
+                "type": option.get("group", "System"),
+            }
+        )
+    for dependency in record.get("selected_dependencies", []):
+        selected_items.append(
+            {
+                "label": dependency.get("label", "Workshop dependency"),
+                "reason": dependency.get("reason", ""),
+                "type": "Dependency",
+            }
+        )
+    for module in record.get("selected_modules", []):
+        selected_items.append(
+            {
+                "label": module.get("title", "Selected module"),
+                "reason": module.get("description", ""),
+                "type": "Legacy module",
+            }
+        )
+
+    for item_index, item in enumerate(selected_items, start=1):
+        for step_index, step in enumerate(procedure_for_item(item["label"], item["reason"], item["type"]), start=1):
+            tasks.append(
+                {
+                    "id": f"task_{item_index}_{step_index}",
+                    "item": item["label"],
+                    "title": step["title"],
+                    "detail": step["detail"],
+                    "client_visible": step["client_visible"],
+                    "done": False,
+                    "done_by": "",
+                    "done_at": "",
+                }
+            )
+
+    if not tasks:
+        tasks.append(
+            {
+                "id": "task_1_1",
+                "item": "Request review",
+                "title": "Review request",
+                "detail": "Confirm scope and prepare an initial studio plan.",
+                "client_visible": True,
+                "done": False,
+                "done_by": "",
+                "done_at": "",
+            }
+        )
+    return tasks
+
+
+def task_progress(record):
+    tasks = [task for task in record.get("task_checklist", []) if task.get("client_visible", True)]
+    done = [task for task in tasks if task.get("done")]
+    percent = round((len(done) / len(tasks)) * 100) if tasks else 0
+    return {"total": len(tasks), "done": len(done), "percent": percent}
 
 
 def parse_iso(value):
@@ -1038,6 +1132,65 @@ def studio_claim_request(reference):
     return redirect(url_for("studio_dashboard", tab="Freelance Pool"))
 
 
+@app.post("/requests/<reference>/tasks/<task_id>/toggle")
+def toggle_request_task(reference, task_id):
+    if current_user().get("role") not in STAFF_ROLES:
+        return redirect(url_for("login", next=f"/requests/{reference}"))
+
+    records = load_requests()
+    record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
+    if not record:
+        return render_template("not_found.html", reference=reference), 404
+
+    for task in record.get("task_checklist", []):
+        if task["id"] != task_id:
+            continue
+        task["done"] = not task.get("done", False)
+        task["done_by"] = current_user()["username"] if task["done"] else ""
+        task["done_at"] = datetime.now(timezone.utc).isoformat() if task["done"] else ""
+        break
+
+    progress = task_progress(record)
+    if progress["percent"] >= 100:
+        record["status_index"] = max(record.get("status_index", 0), 5)
+        record["client_visible_notes"] = "All generated checklist tasks are marked complete and ready for client review."
+        record["notes"] = record["client_visible_notes"]
+    elif progress["percent"] > 0:
+        record["status_index"] = max(record.get("status_index", 0), 3)
+        record["client_visible_notes"] = f"Generated task progress is {progress['percent']}% complete."
+        record["notes"] = record["client_visible_notes"]
+
+    record["last_updated"] = datetime.now(timezone.utc).isoformat()
+    save_requests(records)
+    return redirect(url_for("request_detail", reference=reference))
+
+
+@app.post("/requests/<reference>/addons")
+def add_request_addon(reference):
+    records = load_requests()
+    record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
+    if not record:
+        return render_template("not_found.html", reference=reference), 404
+
+    addon_text = request.form.get("addon_text", "").strip()
+    if addon_text:
+        record.setdefault("client_addons", []).append(
+            {
+                "id": f"addon_{secrets.token_hex(5)}",
+                "text": addon_text,
+                "created_by": current_user().get("username", "Client"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "Needs studio review",
+            }
+        )
+        record["client_visible_notes"] = "Client added a requested change. Studio review is needed."
+        record["notes"] = record["client_visible_notes"]
+        record["last_updated"] = datetime.now(timezone.utc).isoformat()
+        save_requests(records)
+
+    return redirect(url_for("request_detail", reference=reference))
+
+
 @app.post("/admin/users/<user_id>/role")
 def admin_update_user_role(user_id):
     if not admin_unlocked():
@@ -1296,7 +1449,13 @@ def request_detail(reference):
     record = find_record(reference)
     if not record:
         return render_template("not_found.html", reference=reference), 404
-    return render_template("request.html", record=record, phases=PHASES)
+    return render_template(
+        "request.html",
+        record=record,
+        phases=PHASES,
+        progress=task_progress(record),
+        can_manage_tasks=current_user().get("role") in STAFF_ROLES,
+    )
 
 
 @app.get("/api/requests/<reference>")

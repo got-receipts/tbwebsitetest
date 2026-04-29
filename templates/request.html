@@ -15,7 +15,7 @@
   <body>
     <header class="topbar">
       <a class="brand" href="{{ url_for('home') }}">
-        <span class="brand-mark">TB</span>
+        <img class="nav-logo" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
         <span>
           <strong>Thunder Buddies Studios</strong>
           <small>Arma Reforger Mod Builds</small>
@@ -34,6 +34,31 @@
         <span class="label">Build reference</span>
         <h1>{{ record.reference }}</h1>
         <p>{{ record.project_name }} for {{ record.unit_name or "an unnamed unit" }}</p>
+      </section>
+
+      <section class="request-command">
+        <article class="request-progress-card">
+          <div class="studio-section-title">
+            <div>
+              <span class="label">Task progress</span>
+              <h2>{{ progress.percent }}% complete</h2>
+            </div>
+            <span>{{ progress.done }} / {{ progress.total }} checked</span>
+          </div>
+          <div class="animated-progress" style="--progress: {{ progress.percent }}%">
+            <span></span>
+          </div>
+          <p>{{ record.client_visible_notes or record.notes }}</p>
+        </article>
+
+        <article class="request-progress-card">
+          <span class="label">Production status</span>
+          <div class="request-stat-grid">
+            <div><strong>{{ record.score }}</strong><span>Points</span></div>
+            <div><strong>{{ record.eta_days }}</strong><span>ETA days</span></div>
+            <div><strong>{{ record.pool_status|replace("_", " ")|title }}</strong><span>Lane</span></div>
+          </div>
+        </article>
       </section>
 
       <section class="detail-grid">
@@ -97,6 +122,63 @@
           {% else %}
             <p class="empty-state">No modules were selected.</p>
           {% endif %}
+        </aside>
+      </section>
+
+      <section class="request-dashboard-grid">
+        <article class="request-progress-card">
+          <div class="studio-section-title">
+            <h2>Generated developer checklist</h2>
+            <span>Client-visible task procedure</span>
+          </div>
+          <div class="task-board">
+            {% for task in record.task_checklist %}
+              {% if task.client_visible %}
+                <article class="task-card {{ 'done' if task.done else '' }}">
+                  <div class="task-checkmark">{{ "✓" if task.done else loop.index }}</div>
+                  <div>
+                    <span class="label">{{ task.item }}</span>
+                    <h3>{{ task.title }}</h3>
+                    <p>{{ task.detail }}</p>
+                    {% if task.done %}
+                      <em>Completed by {{ task.done_by or "studio" }}</em>
+                    {% endif %}
+                  </div>
+                  {% if can_manage_tasks %}
+                    <form method="post" action="{{ url_for('toggle_request_task', reference=record.reference, task_id=task.id) }}">
+                      <button type="submit">{{ "Undo" if task.done else "Mark done" }}</button>
+                    </form>
+                  {% endif %}
+                </article>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </article>
+
+        <aside class="request-progress-card">
+          <div class="studio-section-title">
+            <h2>Add request</h2>
+            <span>Studio review required</span>
+          </div>
+          <form class="addon-form" method="post" action="{{ url_for('add_request_addon', reference=record.reference) }}">
+            <label>
+              Add something to this build
+              <textarea name="addon_text" placeholder="Describe the change, extra feature, or question you want reviewed."></textarea>
+            </label>
+            <button class="submit-button" type="submit">Send to studio</button>
+          </form>
+
+          <div class="addon-list">
+            {% for addon in record.client_addons %}
+              <article>
+                <strong>{{ addon.status }}</strong>
+                <p>{{ addon.text }}</p>
+                <span>{{ addon.created_by }}</span>
+              </article>
+            {% else %}
+              <p class="empty-state">No added requests yet.</p>
+            {% endfor %}
+          </div>
         </aside>
       </section>
     </main>
