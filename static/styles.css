@@ -1483,15 +1483,6 @@ code {
   gap: 10px;
 }
 
-.companion-download-button {
-  background: rgba(246, 198, 91, 0.13);
-  border: 1px solid rgba(246, 198, 91, 0.34);
-  border-radius: 8px;
-  color: var(--gold);
-  font-weight: 900;
-  padding: 12px 16px;
-}
-
 .home-hero {
   align-items: center;
   display: grid;

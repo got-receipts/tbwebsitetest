@@ -5,7 +5,4 @@ __pycache__/
 data/requests.json
 data/users.json
 node_modules/
-companion/node_modules/
-companion/dist/
-.tools/
 npm-debug.log*

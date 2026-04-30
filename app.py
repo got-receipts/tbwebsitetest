@@ -7,7 +7,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -983,26 +983,6 @@ def home():
 @app.get("/legal")
 def legal():
     return render_template("legal.html")
-
-
-@app.get("/download/companion")
-def download_companion():
-    return send_from_directory(
-        BASE_DIR / "static" / "downloads",
-        "ThunderBuddiesCompanion.exe",
-        as_attachment=True,
-        download_name="ThunderBuddiesCompanion.exe",
-    )
-
-
-@app.get("/api/companion/config")
-def companion_config():
-    return jsonify(
-        {
-            "discord_client_id": os.environ.get("DISCORD_CLIENT_ID", ""),
-            "site_url": "https://fleettest-production.up.railway.app",
-        }
-    )
 
 
 @app.get("/login")
