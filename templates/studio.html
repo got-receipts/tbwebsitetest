@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Studio Dashboard | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="studio-shell">
+    <aside class="studio-sidebar">
+      <a class="studio-logo" href="{{ url_for('studio_dashboard') }}">
+        <img class="sidebar-logo-image" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
+        <span>
+          <strong>Thunder Buddies</strong>
+          <small>{{ account.role|title }} Command</small>
+        </span>
+      </a>
+
+      <nav class="studio-tabs" aria-label="Studio dashboard tabs">
+        {% for tab in tabs %}
+          <a class="{{ 'active' if active_tab == tab else '' }}" href="{{ url_for('studio_dashboard', tab=tab, q=query) }}">
+            {{ tab }}
+          </a>
+        {% endfor %}
+      </nav>
+
+      <div class="studio-sidebar-card">
+        <span class="label">Production load</span>
+        <strong>{{ metrics.active }} active</strong>
+        <p>{{ metrics.avg_complexity }} average complexity points</p>
+      </div>
+
+      <a class="quiet-link" href="{{ url_for('home') }}">Public site</a>
+      <a class="quiet-link" href="{{ url_for('studio_logout') }}">Logout</a>
+    </aside>
+
+    <main class="studio-main">
+      <header class="studio-header">
+        <div>
+          <span class="label">Arma Reforger operations</span>
+          <h1>{{ active_tab }}</h1>
+        </div>
+        <form class="studio-search" method="get" action="{{ url_for('studio_dashboard') }}">
+          <input type="hidden" name="tab" value="{{ active_tab }}" />
+          <input name="q" type="search" value="{{ query }}" placeholder="Search reference, client, unit, project" />
+          <button type="submit">Search</button>
+        </form>
+      </header>
+
+      {% if active_tab == "Command" %}
+        <section class="studio-metrics">
+          <article>
+            <span class="label">Total requests</span>
+            <strong>{{ metrics.total }}</strong>
+            <p>All generated build references</p>
+          </article>
+          <article>
+            <span class="label">Active work</span>
+            <strong>{{ metrics.active }}</strong>
+            <p>Requests not yet packaged</p>
+          </article>
+          <article>
+            <span class="label">High risk</span>
+            <strong>{{ metrics.high_risk }}</strong>
+            <p>Heavy complexity or priority flags</p>
+          </article>
+          <article>
+            <span class="label">Completed</span>
+            <strong>{{ metrics.completed }}</strong>
+            <p>Packaged delivery phase</p>
+          </article>
+          <article>
+            <span class="label">Freelance pool</span>
+            <strong>{{ metrics.freelance_pool }}</strong>
+            <p>{{ metrics.auto_review }} in auto review</p>
+          </article>
+        </section>
+
+        <section class="studio-board">
+          <div class="studio-section-title">
+            <h2>Live production board</h2>
+            <span>{{ records|length }} visible projects</span>
+          </div>
+          <div class="kanban">
+            {% for phase in metrics.by_phase %}
+              <section class="kanban-column">
+                <header>
+                  <strong>{{ phase.name }}</strong>
+                  <span>{{ phase.count }}</span>
+                </header>
+                {% for record in phase.records[:4] %}
+                  <a class="kanban-card" href="{{ url_for('request_detail', reference=record.reference) }}">
+                    <span>{{ record.reference }}</span>
+                    <strong>{{ record.project_name }}</strong>
+                    <small>{{ record.priority }} | {{ record.score }} pts | {{ record.assignee }}</small>
+                  </a>
+                {% else %}
+                  <div class="kanban-empty">No projects</div>
+                {% endfor %}
+              </section>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Projects" %}
+        <section class="project-table">
+          <div class="studio-section-title">
+            <h2>Project control</h2>
+            <span>Update phase, owner, quote state, and notes</span>
+          </div>
+          {% for record in records %}
+            <article class="studio-project">
+              <div class="studio-project-summary">
+                <div>
+                  <span class="reference">{{ record.reference }}</span>
+                  <h3>{{ record.project_name }}</h3>
+                  <p>{{ record.discord_name }} | {{ record.unit_name or "No unit listed" }}</p>
+                  {% if record.selected_build_options or record.selected_dependencies %}
+                    <p class="studio-selection-preview">
+                      {{ record.selected_build_options|length }} systems selected |
+                      {{ record.selected_dependencies|length }} dependencies selected
+                    </p>
+                  {% endif %}
+                </div>
+                <div class="project-badges">
+                  <span>{{ record.tier }}</span>
+                  <span>{{ record.score }} pts</span>
+                  <span>{{ record.eta_days }} days</span>
+                  <span>{{ "%.3f"|format(total_tracked_hours(record)) }} hrs</span>
+                  <span>{{ record.priority }}</span>
+                </div>
+              </div>
+
+              <form class="studio-edit-form" method="post" action="{{ url_for('studio_update_request', reference=record.reference) }}">
+                <input type="hidden" name="return_tab" value="Projects" />
+                <label>
+                  Phase
+                  <select name="status_index">
+                    {% for phase in phases %}
+                      <option value="{{ loop.index0 }}" {{ "selected" if loop.index0 == record.status_index else "" }}>{{ phase }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Priority
+                  <select name="priority">
+                    {% for priority in priorities %}
+                      <option value="{{ priority }}" {{ "selected" if priority == record.priority else "" }}>{{ priority }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Type
+                  <select name="project_type">
+                    {% for type in project_types %}
+                      <option value="{{ type }}" {{ "selected" if type == record.project_type else "" }}>{{ type }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Assignee
+                  <input name="assignee" value="{{ record.assignee }}" />
+                </label>
+                <label>
+                  Budget
+                  <input name="budget_state" value="{{ record.budget_state }}" />
+                </label>
+                <label class="wide">
+                  Client-facing progress note
+                  <textarea name="client_visible_notes">{{ record.client_visible_notes }}</textarea>
+                </label>
+                <label class="wide">
+                  Internal studio notes
+                  <textarea name="studio_notes">{{ record.studio_notes }}</textarea>
+                </label>
+                <button class="submit-button" type="submit">Save project</button>
+              </form>
+              <div class="project-clock-row">
+                <form method="post" action="{{ url_for('start_project_timer', reference=record.reference) }}">
+                  <input name="note" placeholder="Clock note" />
+                  <button type="submit">Start clock</button>
+                </form>
+                <form method="post" action="{{ url_for('stop_project_timer', reference=record.reference) }}">
+                  <button type="submit">Stop my clock</button>
+                </form>
+              </div>
+            </article>
+          {% else %}
+            <div class="empty-dashboard">No requests match this search yet.</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Pipeline" %}
+        <section class="pipeline-grid">
+          {% for phase in metrics.by_phase %}
+            <article class="pipeline-phase">
+              <div class="pipeline-ring" style="--value: {{ phase.count }}">{{ phase.count }}</div>
+              <div>
+                <h3>{{ phase.name }}</h3>
+                <p>
+                  {% if phase.records %}
+                    {{ phase.records|map(attribute="reference")|join(", ") }}
+                  {% else %}
+                    No active references in this phase.
+                  {% endif %}
+                </p>
+              </div>
+            </article>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Clients" %}
+        <section class="client-grid">
+          {% for record in records %}
+            <article>
+              <span class="label">{{ record.reference }}</span>
+              <h3>{{ record.discord_name }}</h3>
+              <p>{{ record.project_name }}</p>
+              <dl>
+                <div><dt>Unit</dt><dd>{{ record.unit_name or "Not listed" }}</dd></div>
+                <div><dt>Deadline</dt><dd>{{ record.deadline }}</dd></div>
+                <div><dt>Current phase</dt><dd>{{ phases[record.status_index] }}</dd></div>
+              </dl>
+            </article>
+          {% else %}
+            <div class="empty-dashboard">No clients match this search.</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Complexity" %}
+        <section class="complexity-dashboard">
+          <article class="complexity-panel">
+            <h2>Module demand</h2>
+            {% for module, count in metrics.module_counts %}
+              <div class="module-demand">
+                <span>{{ module }}</span>
+                <strong>{{ count }}</strong>
+              </div>
+            {% else %}
+              <p class="empty-state">No module data yet.</p>
+            {% endfor %}
+          </article>
+          <article class="complexity-panel">
+            <h2>Highest complexity</h2>
+            {% for record in records[:8] %}
+              <div class="risk-row">
+                <span>{{ record.reference }}</span>
+                <strong>{{ record.score }} pts</strong>
+                <em>{{ record.tier }}</em>
+              </div>
+            {% else %}
+              <p class="empty-state">No requests yet.</p>
+            {% endfor %}
+          </article>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Freelance Pool" %}
+        <section class="project-table">
+          <div class="studio-section-title">
+            <h2>Freelance pool</h2>
+            <span>Builds over 30 days release here after 90 seconds of auto review</span>
+          </div>
+          {% for record in pool_records %}
+            <article class="studio-project">
+              <div class="studio-project-summary">
+                <div>
+                  <span class="reference">{{ record.reference }}</span>
+                  <h3>{{ record.project_name }}</h3>
+                  <p>{{ record.discord_name }} | ETA {{ record.eta_days }} days | {{ record.pool_status|replace("_", " ")|title }}</p>
+                  <p class="studio-selection-preview">{{ record.client_visible_notes }}</p>
+                </div>
+                <div class="project-badges">
+                  <span>{{ record.score }} pts</span>
+                  <span>{{ record.selected_build_options|length }} systems</span>
+                  <span>{{ record.selected_dependencies|length }} deps</span>
+                </div>
+              </div>
+              {% if record.pool_status == "freelance_pool" %}
+                <form method="post" action="{{ url_for('studio_claim_request', reference=record.reference) }}">
+                  <button class="submit-button" type="submit">Claim freelance review</button>
+                </form>
+              {% elif record.pool_status == "auto_review" %}
+                <p class="pool-note">Auto review is waiting for the 90-second release window.</p>
+              {% else %}
+                <p class="pool-note">Claimed by {{ record.claimed_by }}.</p>
+              {% endif %}
+            </article>
+          {% else %}
+            <div class="empty-dashboard">No over-30-day builds are in review or freelance pool.</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Settings" %}
+        <section class="settings-grid">
+          <article>
+            <span class="label">Production economy</span>
+            <h2>{{ economy.circulating_points }} points circulating</h2>
+            <p>Active production points plus freelance pool points currently moving through the studio.</p>
+          </article>
+          <article>
+            <span class="label">Pipeline value</span>
+            <h2>${{ economy.estimated_pipeline_value }}</h2>
+            <p>Estimated value using {{ economy.point_rate }} dollars per production point.</p>
+          </article>
+          <article>
+            <span class="label">Average ETA</span>
+            <h2>{{ economy.average_eta }} days</h2>
+            <p>Average estimated timeline across all tracked tickets.</p>
+          </article>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Admin" and is_admin %}
+        <section class="economy-dashboard">
+          <article>
+            <span class="label">Total production points</span>
+            <strong>{{ economy.total_points }}</strong>
+            <p>All points created by client build requests.</p>
+          </article>
+          <article>
+            <span class="label">Active points</span>
+            <strong>{{ economy.active_points }}</strong>
+            <p>Points currently inside studio production lanes.</p>
+          </article>
+          <article>
+            <span class="label">Pool points</span>
+            <strong>{{ economy.pool_points }}</strong>
+            <p>Points waiting in auto review, freelance pool, or freelance claim.</p>
+          </article>
+          <article>
+            <span class="label">Completed value</span>
+            <strong>${{ economy.estimated_completed_value }}</strong>
+            <p>Estimated delivered value at current point rate.</p>
+          </article>
+        </section>
+
+        <section class="admin-grid">
+          <article class="complexity-panel">
+            <span class="label">Admin oversight</span>
+            <h2>User permissions</h2>
+            <div class="admin-user-list">
+              {% for user in users %}
+                <form class="admin-user-row" method="post" action="{{ url_for('admin_update_user_role', user_id=user.id) }}">
+                  <span>{{ user.username }}</span>
+                  <em>{{ user.email }}</em>
+                  <select name="role">
+                    {% for role in roles %}
+                      <option value="{{ role }}" {{ "selected" if role == user.role else "" }}>{{ role|title }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit">Update</button>
+                </form>
+              {% else %}
+                <p class="empty-state">No accounts yet.</p>
+              {% endfor %}
+            </div>
+          </article>
+          <article class="complexity-panel">
+            <span class="label">Role distribution</span>
+            <h2>Access map</h2>
+            <div class="module-summary">
+              {% for role, count in role_counts.items() %}
+                <article>
+                  <strong>{{ role|title }}</strong>
+                  <span>{{ count }} account{{ "" if count == 1 else "s" }}</span>
+                  <p>
+                    {% if role == "customer" %}
+                      Client portal access only.
+                    {% elif role == "tester" %}
+                      Studio visibility for QA and testing workflows.
+                    {% elif role == "moderator" %}
+                      Studio visibility for queue moderation and project review.
+                    {% elif role == "developer" %}
+                      Developer dashboard and freelance pool access.
+                    {% else %}
+                      Full admin oversight and permission control.
+                    {% endif %}
+                  </p>
+                </article>
+              {% endfor %}
+            </div>
+          </article>
+        </section>
+      {% endif %}
+    </main>
+  </body>
+</html>

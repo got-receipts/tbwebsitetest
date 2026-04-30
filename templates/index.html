@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thunder Buddies Studios | Arma Reforger Mods</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="home-shell">
+    <header class="home-nav">
+      <a class="image-brand" href="{{ url_for('home') }}">
+        <img src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="Thunder Buddies Studios" />
+      </a>
+      <nav aria-label="Public navigation">
+        <a href="#systems">Systems</a>
+      </nav>
+      <div class="home-nav-actions">
+        <a class="companion-download-button" href="{{ url_for('download_companion') }}">Download Companion</a>
+        <a class="home-login-button" href="{{ url_for('login') }}">Login</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="home-hero">
+        <div class="animated-grid" aria-hidden="true"></div>
+        <div class="orbit-widget orbit-one" aria-hidden="true">QA</div>
+        <div class="orbit-widget orbit-two" aria-hidden="true">WIP</div>
+        <div class="orbit-widget orbit-three" aria-hidden="true">DEV</div>
+
+        <div class="home-hero-copy">
+          <span class="label">Thunder Buddies Studios</span>
+          <h1>Arma Reforger mod production command center.</h1>
+          <p>
+            Being on console for Arma Reforger can be rough. No more sitting in
+            Discord calls wondering if your mod is actually being developed. Submit
+            the build, get a reference, follow step-by-step progress, and let the
+            developer side track Enfusion Suite time, production notes, tracing, and
+            delivery status.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link pulse-cta" href="{{ url_for('login', mode='register') }}">Create account</a>
+            <a class="secondary-link" href="{{ url_for('login') }}">Login to dashboard</a>
+            <button class="secondary-link info-pop" type="button" data-modal="roleModal">View roles</button>
+          </div>
+        </div>
+
+        <div class="hero-console">
+          <div class="console-header">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="hero-logo-frame">
+            <img src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
+          </div>
+          <div class="console-line">
+            <span>Client portal</span>
+            <strong>Requests, references, step-by-step progress</strong>
+          </div>
+          <div class="console-line">
+            <span>Developer dashboard</span>
+            <strong>Enfusion time tracing, build notes, workload</strong>
+          </div>
+          <div class="console-line">
+            <span>Admin oversight</span>
+            <strong>Users, roles, studio metrics</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="systems" class="home-widgets">
+        <article class="motion-card">
+          <span class="label">Customers</span>
+          <h2>Know what is happening</h2>
+          <p>Create a mod request, get a TBS-RF reference, and see where the build stands without chasing updates in Discord.</p>
+          <a href="{{ url_for('login', mode='register') }}">Start client account</a>
+        </article>
+        <article class="motion-card">
+          <span class="label">Developers</span>
+          <h2>Trace production</h2>
+          <p>Track Enfusion Suite time, project status, assignees, estimates, internal notes, and approved client updates.</p>
+          <a href="{{ url_for('login') }}">Developer login</a>
+        </article>
+        <article class="motion-card">
+          <span class="label">Admins</span>
+          <h2>Run the studio</h2>
+          <p>Oversee accounts, projects, risk load, active work, and delivery flow from one command screen.</p>
+          <a href="{{ url_for('login') }}">Admin login</a>
+        </article>
+      </section>
+
+      <footer class="home-fineprint">
+        Complexity scoring is an intake estimate based on scope, description detail, integration risk, and timeline pressure.
+        Final effort, scheduling, and delivery terms are confirmed during studio review.
+        <a class="tiny-legal-link" href="{{ url_for('legal') }}">TOS / EULA / Discord OAuth notice</a>
+      </footer>
+    </main>
+
+    <div class="modal-backdrop" id="roleModal" aria-hidden="true">
+      <section class="site-modal" role="dialog" aria-modal="true" aria-label="Role overview">
+        <button class="modal-close" type="button" data-close-modal>Close</button>
+        <span class="label">Role routing</span>
+        <h2>One login, three dashboards.</h2>
+        <p>Customer accounts go to the client portal. Developer accounts go to the production dashboard. Admin accounts open the full oversight dashboard with user and project control.</p>
+      </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

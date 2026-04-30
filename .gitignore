@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+data/requests.json
+data/users.json
+node_modules/
+companion/node_modules/
+companion/dist/
+.tools/
+npm-debug.log*

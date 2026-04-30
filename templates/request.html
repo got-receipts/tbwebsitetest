@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ record.reference }} | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('home') }}">
+        <img class="nav-logo" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
+        <span>
+          <strong>Thunder Buddies Studios</strong>
+          <small>Arma Reforger Mod Builds</small>
+        </span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="{{ url_for('home') }}#builder">Builder</a>
+        <a href="{{ url_for('home') }}#tracking">Progress</a>
+        <a href="{{ url_for('client_portal') }}">Client Portal</a>
+        <a href="{{ url_for('studio_dashboard') }}">Studio</a>
+      </nav>
+    </header>
+
+    <main class="detail-page">
+      <section class="detail-hero">
+        <span class="label">Build reference</span>
+        <h1>{{ record.reference }}</h1>
+        <p>{{ record.project_name }} for {{ record.unit_name or "an unnamed unit" }}</p>
+      </section>
+
+      <section class="request-command">
+        <article class="request-progress-card">
+          <div class="studio-section-title">
+            <div>
+              <span class="label">Task progress</span>
+              <h2>{{ progress.percent }}% complete</h2>
+            </div>
+            <span>{{ progress.done }} / {{ progress.total }} checked</span>
+          </div>
+          <div class="animated-progress" style="--progress: {{ progress.percent }}%">
+            <span></span>
+          </div>
+          <p>{{ record.client_visible_notes or record.notes }}</p>
+        </article>
+
+        <article class="request-progress-card">
+          <span class="label">Production status</span>
+          <div class="request-stat-grid">
+            <div><strong>{{ "%.3f"|format(record.score) }}</strong><span>Millipoints</span></div>
+            <div><strong>{{ "%.3f"|format(record.hours_estimate) }}</strong><span>Est. hours</span></div>
+            <div><strong>${{ "%.2f"|format(record.advised_donation) }}</strong><span>Advised donation</span></div>
+            <div><strong>{{ "%.3f"|format(tracked_hours) }}</strong><span>Tracked hours</span></div>
+            <div><strong>{{ record.eta_days }}</strong><span>ETA days</span></div>
+            <div><strong>{{ record.pool_status|replace("_", " ")|title }}</strong><span>Lane</span></div>
+          </div>
+        </article>
+      </section>
+
+      {% if can_manage_tasks %}
+        <section class="request-progress-card timer-panel">
+          <div class="studio-section-title">
+            <div>
+              <span class="label">Studio clock</span>
+              <h2>{{ "Clock running" if timer_running else "Track project time" }}</h2>
+            </div>
+            <span>{{ "%.3f"|format(tracked_hours) }} hours logged</span>
+          </div>
+          <div class="timer-actions">
+            {% if timer_running %}
+              <form method="post" action="{{ url_for('stop_project_timer', reference=record.reference) }}">
+                <button class="submit-button" type="submit">Stop timer</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('start_project_timer', reference=record.reference) }}">
+                <input name="note" placeholder="What are you working on?" />
+                <button class="submit-button" type="submit">Start timer</button>
+              </form>
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
+
+      <section class="request-progress-card timer-panel">
+        <div class="studio-section-title">
+          <div>
+            <span class="label">Desktop companion</span>
+            <h2>Discord Rich Presence</h2>
+          </div>
+          <a class="companion-download-button" href="{{ url_for('download_companion') }}">Download Companion</a>
+        </div>
+        <p>Open the companion app and enter {{ record.reference }} to sync this request to your Discord playing activity.</p>
+      </section>
+
+      <section class="detail-grid">
+        <article class="progress-result">
+          <div class="progress-header">
+            <div>
+              <span class="label">Complexity</span>
+              <strong class="reference">{{ record.score }} pts | {{ record.tier }}</strong>
+            </div>
+            <div>
+              <span class="label">ETA</span>
+              <strong>{{ record.eta_days }} days</strong>
+            </div>
+            <div>
+              <span class="label">Discord</span>
+              <strong>{{ record.discord_name }}</strong>
+            </div>
+          </div>
+
+          <div class="phase-list">
+            {% for phase in phases %}
+              {% set phase_state = "done" if loop.index0 < record.status_index else ("current" if loop.index0 == record.status_index else "") %}
+              <div class="phase {{ phase_state }}">
+                <span class="phase-dot"></span>
+                <div>
+                  <strong>{{ phase }}</strong>
+                  <span>{{ "In progress" if loop.index0 == record.status_index else ("Complete" if loop.index0 < record.status_index else "Queued") }}</span>
+                </div>
+                <em>Step {{ loop.index }} / {{ phases|length }}</em>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <aside class="progress-result">
+          <span class="label">Selected modules</span>
+          {% if record.selected_modules or record.selected_build_options or record.selected_dependencies %}
+            <div class="module-summary">
+              {% for option in record.selected_build_options %}
+                <article>
+                  <strong>{{ option.label }}</strong>
+                  <span>{{ option.group }} | {{ option.points }} pts | {{ option.eta_days }} days</span>
+                  <p>{{ option.reason or "Selected structured build system." }}</p>
+                </article>
+              {% endfor %}
+              {% for dependency in record.selected_dependencies %}
+                <article>
+                  <strong>{{ dependency.label }}</strong>
+                  <span>Workshop dependency | {{ dependency.points }} pts | {{ dependency.eta_days }} days</span>
+                  <p>{{ dependency.reason or ("Author: " ~ dependency.author) }}</p>
+                </article>
+              {% endfor %}
+              {% for module in record.selected_modules %}
+                <article>
+                  <strong>{{ module.title }}</strong>
+                  <span>{{ module.points }} pts</span>
+                  <p>{{ module.description or "No extra description provided." }}</p>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-state">No modules were selected.</p>
+          {% endif %}
+        </aside>
+      </section>
+
+      <section class="request-dashboard-grid">
+        <article class="request-progress-card">
+          <div class="studio-section-title">
+            <h2>Generated developer checklist</h2>
+            <span>Client-visible task procedure</span>
+          </div>
+          <div class="task-board">
+            {% for task in record.task_checklist %}
+              {% if task.client_visible %}
+                <article class="task-card {{ 'done' if task.done else '' }}">
+                  <div class="task-checkmark">{{ "✓" if task.done else loop.index }}</div>
+                  <div>
+                    <span class="label">{{ task.item }}</span>
+                    <h3>{{ task.title }}</h3>
+                    <p>{{ task.detail }}</p>
+                    {% if task.done %}
+                      <em>Completed by {{ task.done_by or "studio" }}</em>
+                    {% endif %}
+                  </div>
+                  {% if can_manage_tasks %}
+                    <form method="post" action="{{ url_for('toggle_request_task', reference=record.reference, task_id=task.id) }}">
+                      <button type="submit">{{ "Undo" if task.done else "Mark done" }}</button>
+                    </form>
+                  {% endif %}
+                </article>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </article>
+
+        <aside class="request-progress-card">
+          <div class="studio-section-title">
+            <h2>Add request</h2>
+            <span>Studio review required</span>
+          </div>
+          <form class="addon-form" method="post" action="{{ url_for('add_request_addon', reference=record.reference) }}">
+            <label>
+              Add something to this build
+              <textarea name="addon_text" placeholder="Describe the change, extra feature, or question you want reviewed."></textarea>
+            </label>
+            <button class="submit-button" type="submit">Send to studio</button>
+          </form>
+
+          <div class="addon-list">
+            {% for addon in record.client_addons %}
+              <article>
+                <strong>{{ addon.status }}</strong>
+                <p>{{ addon.text }}</p>
+                <span>{{ addon.created_by }}</span>
+              </article>
+            {% else %}
+              <p class="empty-state">No added requests yet.</p>
+            {% endfor %}
+          </div>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

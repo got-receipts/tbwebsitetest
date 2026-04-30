@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Client Portal | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="client-shell">
+    <header class="client-topbar">
+      <a class="brand" href="{{ url_for('home') }}">
+        <img class="nav-logo" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
+        <span>
+          <strong>Thunder Buddies Studios</strong>
+          <small>Client Portal</small>
+        </span>
+      </a>
+      <nav aria-label="Client portal tabs">
+        {% for tab in tabs %}
+          <a class="{{ 'active' if active_tab == tab else '' }}" href="{{ url_for('client_portal', tab=tab) }}">{{ tab }}</a>
+        {% endfor %}
+      </nav>
+      <div class="client-account-actions">
+        <a class="discord-button" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="quiet-link" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </header>
+
+    <main class="client-main">
+      <section class="client-hero-panel">
+        <div>
+          <span class="label">Signed in as</span>
+          <h1>{{ user.username }}</h1>
+          <p>Track builds, review progress, and submit new Arma Reforger mod requests.</p>
+        </div>
+        <div class="client-reference-card">
+          <span class="label">Newest reference</span>
+          <strong>{{ records[0].reference if records else "No request yet" }}</strong>
+          <span>{{ records[0].project_name if records else "Create a request to generate one." }}</span>
+        </div>
+      </section>
+
+      {% if active_tab == "Overview" %}
+        <section class="client-metrics">
+          <article>
+            <span class="label">Total requests</span>
+            <strong>{{ metrics.total }}</strong>
+          </article>
+          <article>
+            <span class="label">Active builds</span>
+            <strong>{{ metrics.active }}</strong>
+          </article>
+          <article>
+            <span class="label">Ready for review</span>
+            <strong>{{ metrics.review }}</strong>
+          </article>
+          <article>
+            <span class="label">Completed</span>
+            <strong>{{ metrics.completed }}</strong>
+          </article>
+        </section>
+
+        <section class="client-split">
+          <article class="client-panel">
+            <div class="studio-section-title">
+              <h2>Current progress</h2>
+              <a class="quiet-link" href="{{ url_for('client_portal', tab='Requests') }}">View all</a>
+            </div>
+            {% for record in records[:3] %}
+              <a class="client-request-row" href="{{ url_for('request_detail', reference=record.reference) }}">
+                <span>{{ record.reference }}</span>
+                <strong>{{ record.project_name }}</strong>
+                <em>{{ phases[record.status_index] }} | {{ record.score }} pts</em>
+              </a>
+            {% else %}
+              <p class="empty-state">No requests yet. Start a build request when you are ready.</p>
+            {% endfor %}
+          </article>
+
+          <article class="client-panel">
+            <div class="studio-section-title">
+              <h2>Reference lookup</h2>
+              <span>Public-safe progress check</span>
+            </div>
+            <div class="lookup">
+              <input id="lookupInput" type="text" placeholder="TBS-RF-0000" />
+              <button id="lookupButton" type="button">Search</button>
+            </div>
+            <div id="lookupResult" class="progress-result compact">
+              <span class="empty-state">Enter a reference number.</span>
+            </div>
+          </article>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Requests" %}
+        <section class="client-panel">
+          <div class="studio-section-title">
+            <h2>Your build requests</h2>
+            <a class="primary-link" href="{{ url_for('client_portal', tab='New Build') }}">New build</a>
+          </div>
+          <div class="client-request-list">
+            {% for record in records %}
+              <article class="client-request-card">
+                <div>
+                  <span class="reference">{{ record.reference }}</span>
+                  <h3>{{ record.project_name }}</h3>
+                  <p>{{ record.client_visible_notes or record.notes }}</p>
+                  <p class="eta-badge">Estimated timeline: {{ record.eta_days }} days</p>
+                  {% if record.pool_status == "auto_review" %}
+                    <p class="pool-note">Auto review: over 30 days. Releases to freelance pool after 90 seconds.</p>
+                  {% elif record.pool_status == "freelance_pool" %}
+                    <p class="pool-note">Available in freelance pool for developer claim.</p>
+                  {% elif record.pool_status == "claimed_freelance" %}
+                    <p class="pool-note">Claimed by {{ record.claimed_by }} for freelance estimate review.</p>
+                  {% endif %}
+                </div>
+                <div class="phase-list">
+                  {% for phase in phases %}
+                    {% set phase_state = "done" if loop.index0 < record.status_index else ("current" if loop.index0 == record.status_index else "") %}
+                    <div class="phase {{ phase_state }}">
+                      <span class="phase-dot"></span>
+                      <div>
+                        <strong>{{ phase }}</strong>
+                        <span>{{ "In progress" if loop.index0 == record.status_index else ("Complete" if loop.index0 < record.status_index else "Queued") }}</span>
+                      </div>
+                      <em>Step {{ loop.index }} / {{ phases|length }}</em>
+                    </div>
+                  {% endfor %}
+                </div>
+              </article>
+            {% else %}
+              <p class="empty-state">No build requests are attached to this Discord account yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "New Build" %}
+        <section class="workspace client-build-workspace">
+          <div class="section-heading">
+            <span class="label">New request</span>
+            <h2>Start an Arma Reforger build</h2>
+            <p>Select the systems you need and describe the mod. The client portal will save the request to this account.</p>
+          </div>
+          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}">
+            <input type="hidden" name="destination" value="client" />
+            <aside class="project-panel" aria-label="Project details">
+              <label>
+                Project name
+                <input name="project_name" type="text" placeholder="Task Force Thunder overhaul" required />
+              </label>
+              <label>
+                Discord username
+                <input name="discord_name" type="text" value="{{ user.username }}" required />
+              </label>
+              <label>
+                Target server or unit
+                <input name="unit_name" type="text" placeholder="Unit, community, or private server" />
+              </label>
+              <label>
+                Deadline pressure
+                <select id="deadline" name="deadline">
+                  <option value="standard">Standard timeline</option>
+                  <option value="soon">Needed in 2-4 weeks</option>
+                  <option value="rush">Rush build</option>
+                </select>
+              </label>
+              <div class="score-box">
+                <span class="label">Live complexity</span>
+                <strong id="complexityScore">0 pts</strong>
+                <span id="complexityTier">Recon</span>
+                <span id="timelineEstimate">ETA: 1 day</span>
+                <meter id="complexityMeter" min="0" max="220" value="0"></meter>
+              </div>
+              <button class="submit-button" type="submit">Submit to studio</button>
+            </aside>
+            <div class="question-list">
+              <article class="builder-option-shell">
+                <div class="studio-section-title">
+                  <h2>Pick build systems</h2>
+                  <span>Official Workbench-informed categories</span>
+                </div>
+                <div class="builder-tabs">
+                  {% for group in build_option_groups %}
+                    <section class="builder-tab-panel">
+                      <h3>{{ group.title }}</h3>
+                      <div class="option-check-grid">
+                        {% for option in group.options %}
+                          <label class="option-check">
+                            <input name="buildopt_{{ option.id }}" type="checkbox" data-points="{{ option.points }}" />
+                            <span>
+                              <strong>{{ option.label }}</strong>
+                              <em>{{ option.points }} pts</em>
+                            </span>
+                            <textarea
+                              class="reason-field"
+                              name="buildopt_{{ option.id }}_reason"
+                              placeholder="What needs to be done for {{ option.label }}?"
+                            ></textarea>
+                          </label>
+                        {% endfor %}
+                      </div>
+                    </section>
+                  {% endfor %}
+                </div>
+              </article>
+
+              <article class="builder-option-shell">
+                <div class="studio-section-title">
+                  <h2>Workshop dependencies</h2>
+                  <span>Seeded from the current Reforger Workshop listing</span>
+                </div>
+                <div class="dependency-grid">
+                  {% for dependency in workshop_dependencies %}
+                    <label class="dependency-check">
+                      <input name="dep_{{ dependency.id }}" type="checkbox" data-points="{{ dependency.points }}" />
+                      <span>
+                        <strong>{{ dependency.label }}</strong>
+                        <em>by {{ dependency.author }} | {{ dependency.points }} pts</em>
+                      </span>
+                      <textarea
+                        class="reason-field"
+                        name="dep_{{ dependency.id }}_reason"
+                        placeholder="Why is this dependency needed and how should it be used?"
+                      ></textarea>
+                    </label>
+                  {% endfor %}
+                </div>
+              </article>
+
+              <article class="question-card" data-base="0" data-risk="0">
+                <div class="question-head">
+                  <div class="question-title">
+                    <strong>Anything custom not listed?</strong>
+                    <span>Use this only when the checkboxes do not cover the request.</span>
+                  </div>
+                  <label class="switch" aria-label="Enable custom notes">
+                    <input name="custom_enabled" type="checkbox" />
+                    <span></span>
+                  </label>
+                </div>
+                <div class="question-body">
+                  <label>
+                    Custom notes
+                    <textarea name="custom_description" placeholder="Add anything the checkbox system did not cover."></textarea>
+                  </label>
+                  <span class="mini-score">Custom notes add detail points only.</span>
+                </div>
+              </article>
+            </div>
+          </form>
+          <footer class="complexity-fineprint">
+            Complexity score reflects selected scope, description detail, integration risk, and deadline pressure.
+            Scores are planning estimates only and may change after studio review.
+          </footer>
+        </section>
+      {% endif %}
+
+      {% if active_tab == "Account" %}
+        <section class="settings-grid">
+          <article>
+            <span class="label">Discord identity</span>
+            <h2>{{ user.username }}</h2>
+            <p>{{ "Prototype login" if user.prototype else "Discord OAuth account" }}</p>
+          </article>
+          <article>
+            <span class="label">Client privacy</span>
+            <h2>Client-visible updates only</h2>
+            <p>The client portal shows progress and client notes. Internal studio notes stay on the dev dashboard.</p>
+          </article>
+          <article>
+            <span class="label">Need help?</span>
+            <h2>Use your reference</h2>
+            <p>Send your `TBS-RF` number to the studio whenever you need an update.</p>
+          </article>
+        </section>
+      {% endif %}
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
