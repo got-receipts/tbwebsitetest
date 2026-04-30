@@ -133,6 +133,7 @@
                   <span>{{ record.tier }}</span>
                   <span>{{ record.score }} pts</span>
                   <span>{{ record.eta_days }} days</span>
+                  <span>{{ "%.3f"|format(total_tracked_hours(record)) }} hrs</span>
                   <span>{{ record.priority }}</span>
                 </div>
               </div>
@@ -181,6 +182,15 @@
                 </label>
                 <button class="submit-button" type="submit">Save project</button>
               </form>
+              <div class="project-clock-row">
+                <form method="post" action="{{ url_for('start_project_timer', reference=record.reference) }}">
+                  <input name="note" placeholder="Clock note" />
+                  <button type="submit">Start clock</button>
+                </form>
+                <form method="post" action="{{ url_for('stop_project_timer', reference=record.reference) }}">
+                  <button type="submit">Stop my clock</button>
+                </form>
+              </div>
             </article>
           {% else %}
             <div class="empty-dashboard">No requests match this search yet.</div>

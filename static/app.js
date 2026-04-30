@@ -28,6 +28,16 @@ function deadlinePoints() {
   return 0;
 }
 
+function detailPoints(reason, isDependency = false) {
+  const words = reason.split(/\s+/).filter(Boolean);
+  const uniqueWords = new Set(words.map((word) => word.toLowerCase().replace(/[.,:;!?()[\]]/g, "")).filter(Boolean));
+  const sentenceCount = Math.max(1, (reason.match(/[.!?\n]/g) || []).length);
+  const score = isDependency
+    ? words.length * 0.118 + uniqueWords.size * 0.037 + sentenceCount * 0.071
+    : words.length * 0.173 + uniqueWords.size * 0.041 + sentenceCount * 0.119;
+  return Math.min(isDependency ? 18 : 28, score);
+}
+
 function calculateScore() {
   if (!scoreLabel || !tierLabel || !meter) return;
   let score = deadlinePoints();
@@ -54,10 +64,8 @@ function calculateScore() {
   document.querySelectorAll(".option-check input:checked, .dependency-check input:checked").forEach((input) => {
     const parent = input.closest(".option-check, .dependency-check");
     const reason = parent?.querySelector(".reason-field")?.value.trim() || "";
-    const words = reason.split(/\s+/).filter(Boolean).length;
-    const reasonPoints = parent?.classList.contains("dependency-check")
-      ? Math.min(18, Math.floor(words / 6))
-      : Math.min(28, Math.floor(words / 5));
+    const isDependency = parent?.classList.contains("dependency-check");
+    const reasonPoints = detailPoints(reason, isDependency);
     const basePoints = Number(input.dataset.points || 0);
     const itemScore = basePoints + reasonPoints;
     score += itemScore;
@@ -72,7 +80,7 @@ function calculateScore() {
   if (dependencyCount >= 3) score += 12;
   if (dependencyCount >= 6) score += 18;
 
-  scoreLabel.textContent = `${score} pts`;
+  scoreLabel.textContent = `${score.toFixed(3)} pts`;
   tierLabel.textContent = tierFor(score);
   if (deadline?.value === "soon") etaDays += 2;
   if (deadline?.value === "rush") etaDays += 4;

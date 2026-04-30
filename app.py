@@ -326,6 +326,8 @@ STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Free
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
 ROLES = ["customer", "developer", "moderator", "tester", "admin"]
 STAFF_ROLES = {"developer", "moderator", "tester", "admin"}
+POINT_DONATION_RATE = 1.25
+POINTS_PER_HOUR = 3.4
 TEST_ACCOUNTS = [
     {
         "username": "admin_test",
@@ -462,6 +464,9 @@ def normalize_record(record):
     record.setdefault("claimed_by_id", "")
     record.setdefault("client_addons", [])
     record.setdefault("task_checklist", generate_task_checklist(record))
+    record.setdefault("hours_estimate", estimate_hours(record.get("score", 0)))
+    record.setdefault("advised_donation", advised_donation(record.get("score", 0)))
+    record.setdefault("time_entries", [])
     return record
 
 
@@ -573,6 +578,42 @@ def estimate_days_from_score(score):
 def timeline_days(points, reason_points=0, kind="system"):
     divisor = 12 if kind == "system" else 16
     return max(1, round((points + reason_points) / divisor))
+
+
+def millipoints(value):
+    return round(float(value), 3)
+
+
+def reason_detail_score(reason, kind="system"):
+    words = [word for word in reason.replace("\n", " ").split(" ") if word.strip()]
+    unique_words = len({word.lower().strip(".,:;!?()[]") for word in words if word.strip(".,:;!?()[]")})
+    sentence_count = max(1, reason.count(".") + reason.count("?") + reason.count("!") + reason.count("\n"))
+    if kind == "dependency":
+        cap = 18
+        score = len(words) * 0.118 + unique_words * 0.037 + sentence_count * 0.071
+    else:
+        cap = 28
+        score = len(words) * 0.173 + unique_words * 0.041 + sentence_count * 0.119
+    return millipoints(min(cap, score))
+
+
+def estimate_hours(score):
+    return millipoints(max(0.25, score / POINTS_PER_HOUR))
+
+
+def advised_donation(score):
+    return millipoints(score * POINT_DONATION_RATE)
+
+
+def total_tracked_hours(record):
+    total_seconds = 0
+    now = datetime.now(timezone.utc)
+    for entry in record.get("time_entries", []):
+        start = parse_iso(entry.get("start"))
+        end = parse_iso(entry.get("end")) or now
+        if start and end > start:
+            total_seconds += (end - start).total_seconds()
+    return millipoints(total_seconds / 3600)
 
 
 def refresh_freelance_pool(records):
@@ -752,8 +793,8 @@ def calculate_complexity(form):
             if form.get(f"buildopt_{option['id']}") != "on":
                 continue
             reason = form.get(f"buildopt_{option['id']}_reason", "").strip()
-            reason_points = min(28, len(reason.split()) // 5)
-            option_score = option["points"] + reason_points
+            reason_points = reason_detail_score(reason, "system")
+            option_score = millipoints(option["points"] + reason_points)
             eta_days = timeline_days(option["points"], reason_points, "system")
             score += option_score
             selected_build_options.append(
@@ -781,8 +822,8 @@ def calculate_complexity(form):
         if form.get(f"dep_{dependency['id']}") != "on":
             continue
         reason = form.get(f"dep_{dependency['id']}_reason", "").strip()
-        reason_points = min(18, len(reason.split()) // 6)
-        dependency_score = dependency["points"] + reason_points
+        reason_points = reason_detail_score(reason, "dependency")
+        dependency_score = millipoints(dependency["points"] + reason_points)
         eta_days = timeline_days(dependency["points"], reason_points, "dependency")
         score += dependency_score
         selected_dependencies.append(
@@ -806,7 +847,7 @@ def calculate_complexity(form):
 
     custom_description = form.get("custom_description", "").strip()
     if form.get("custom_enabled") == "on" and custom_description:
-        detail_points = min(24, max(8, len(custom_description.split()) // 6))
+        detail_points = max(8, reason_detail_score(custom_description, "system"))
         eta_days = timeline_days(detail_points, 0, "system")
         score += detail_points
         selected_build_options.append(
@@ -842,6 +883,7 @@ def calculate_complexity(form):
         score += 12
     if len(selected_dependencies) >= 6:
         score += 18
+    score = millipoints(score)
 
     eta_days = max(1, sum(item["eta_days"] for item in timeline_summary))
     if deadline == "soon":
@@ -857,6 +899,8 @@ def calculate_complexity(form):
         "selected_dependencies": selected_dependencies,
         "timeline_summary": timeline_summary,
         "eta_days": eta_days,
+        "hours_estimate": estimate_hours(score),
+        "advised_donation": advised_donation(score),
         "deadline_points": deadline_points,
     }
 
@@ -892,6 +936,10 @@ def studio_unlocked():
 
 def admin_unlocked():
     return current_user().get("role") == "admin"
+
+
+def admin_permissions_unlocked():
+    return admin_unlocked() and session.get("admin_permissions_unlocked") is True
 
 
 def records_for_user(records, user):
@@ -930,6 +978,11 @@ def home():
         request_count=len(user_records),
         latest_reference=user_records[-1]["reference"] if user_records else None,
     )
+
+
+@app.get("/legal")
+def legal():
+    return render_template("legal.html")
 
 
 @app.get("/login")
@@ -985,7 +1038,7 @@ def register_post():
 def dashboard():
     role = current_user().get("role")
     if role == "admin":
-        return redirect(url_for("studio_dashboard", tab="Admin"))
+        return redirect(url_for("studio_dashboard", tab="Command"))
     if role in STAFF_ROLES:
         return redirect(url_for("studio_dashboard"))
     if role == "customer":
@@ -1021,6 +1074,7 @@ def client_portal():
 def logout():
     session.pop("account", None)
     session.pop("discord_user", None)
+    session.pop("admin_permissions_unlocked", None)
     return redirect(url_for("home"))
 
 
@@ -1037,6 +1091,7 @@ def studio_login_post():
 @app.get("/studio/logout")
 def studio_logout():
     session.pop("account", None)
+    session.pop("admin_permissions_unlocked", None)
     return redirect(url_for("home"))
 
 
@@ -1049,6 +1104,8 @@ def studio_dashboard():
     visible_tabs = STUDIO_TABS if account.get("role") == "admin" else [tab for tab in STUDIO_TABS if tab != "Admin"]
     if active_tab not in visible_tabs:
         active_tab = "Command"
+    if active_tab == "Admin" and not admin_permissions_unlocked():
+        return redirect(url_for("admin_verify"))
 
     if query:
         records = [
@@ -1073,9 +1130,11 @@ def studio_dashboard():
         account=account,
         users=[public_user(user) for user in load_users()],
         is_admin=account.get("role") == "admin",
+        admin_permissions_unlocked=admin_permissions_unlocked(),
         roles=ROLES,
         economy=economy_metrics(records),
         role_counts=role_counts(load_users()),
+        total_tracked_hours=total_tracked_hours,
         pool_records=[
             record
             for record in records
@@ -1191,10 +1250,62 @@ def add_request_addon(reference):
     return redirect(url_for("request_detail", reference=reference))
 
 
+@app.post("/studio/requests/<reference>/timer/start")
+def start_project_timer(reference):
+    if current_user().get("role") not in STAFF_ROLES:
+        return redirect(url_for("login", next=f"/requests/{reference}"))
+
+    records = load_requests()
+    record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
+    if not record:
+        return render_template("not_found.html", reference=reference), 404
+
+    account = current_user()
+    running = [
+        entry
+        for entry in record.setdefault("time_entries", [])
+        if entry.get("user_id") == account["id"] and not entry.get("end")
+    ]
+    if not running:
+        record["time_entries"].append(
+            {
+                "id": f"time_{secrets.token_hex(5)}",
+                "user_id": account["id"],
+                "username": account["username"],
+                "start": datetime.now(timezone.utc).isoformat(),
+                "end": "",
+                "note": request.form.get("note", "").strip(),
+            }
+        )
+        record["last_updated"] = datetime.now(timezone.utc).isoformat()
+        save_requests(records)
+    return redirect(url_for("request_detail", reference=reference))
+
+
+@app.post("/studio/requests/<reference>/timer/stop")
+def stop_project_timer(reference):
+    if current_user().get("role") not in STAFF_ROLES:
+        return redirect(url_for("login", next=f"/requests/{reference}"))
+
+    records = load_requests()
+    record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
+    if not record:
+        return render_template("not_found.html", reference=reference), 404
+
+    account = current_user()
+    for entry in reversed(record.setdefault("time_entries", [])):
+        if entry.get("user_id") == account["id"] and not entry.get("end"):
+            entry["end"] = datetime.now(timezone.utc).isoformat()
+            break
+    record["last_updated"] = datetime.now(timezone.utc).isoformat()
+    save_requests(records)
+    return redirect(url_for("request_detail", reference=reference))
+
+
 @app.post("/admin/users/<user_id>/role")
 def admin_update_user_role(user_id):
-    if not admin_unlocked():
-        return redirect(url_for("login"))
+    if not admin_permissions_unlocked():
+        return redirect(url_for("admin_verify"))
 
     new_role = request.form.get("role", "customer")
     if new_role not in ROLES:
@@ -1207,6 +1318,24 @@ def admin_update_user_role(user_id):
             break
     save_users(users)
     return redirect(url_for("studio_dashboard", tab="Admin"))
+
+
+@app.get("/admin/verify")
+def admin_verify():
+    if not admin_unlocked():
+        return redirect(url_for("login"))
+    return render_template("admin_verify.html")
+
+
+@app.post("/admin/verify")
+def admin_verify_post():
+    account = current_user()
+    user = find_user(account.get("email", ""))
+    password = request.form.get("password", "")
+    if user and check_password_hash(user["password_hash"], password):
+        session["admin_permissions_unlocked"] = True
+        return redirect(url_for("studio_dashboard", tab="Admin"))
+    return render_template("admin_verify.html", error="Admin password did not match."), 401
 
 
 @app.get("/login/discord")
@@ -1421,6 +1550,8 @@ def create_request():
         "selected_dependencies": complexity["selected_dependencies"],
         "timeline_summary": complexity["timeline_summary"],
         "eta_days": eta_days,
+        "hours_estimate": complexity["hours_estimate"],
+        "advised_donation": complexity["advised_donation"],
         "pool_status": pool_status,
         "auto_review_until": auto_review_until,
         "claimed_by": "",
@@ -1449,12 +1580,19 @@ def request_detail(reference):
     record = find_record(reference)
     if not record:
         return render_template("not_found.html", reference=reference), 404
+    account = current_user()
+    timer_running = any(
+        entry.get("user_id") == account.get("id") and not entry.get("end")
+        for entry in record.get("time_entries", [])
+    )
     return render_template(
         "request.html",
         record=record,
         phases=PHASES,
         progress=task_progress(record),
-        can_manage_tasks=current_user().get("role") in STAFF_ROLES,
+        can_manage_tasks=account.get("role") in STAFF_ROLES,
+        tracked_hours=total_tracked_hours(record),
+        timer_running=timer_running,
     )
 
 

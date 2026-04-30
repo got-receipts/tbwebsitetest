@@ -54,12 +54,39 @@
         <article class="request-progress-card">
           <span class="label">Production status</span>
           <div class="request-stat-grid">
-            <div><strong>{{ record.score }}</strong><span>Points</span></div>
+            <div><strong>{{ "%.3f"|format(record.score) }}</strong><span>Millipoints</span></div>
+            <div><strong>{{ "%.3f"|format(record.hours_estimate) }}</strong><span>Est. hours</span></div>
+            <div><strong>${{ "%.2f"|format(record.advised_donation) }}</strong><span>Advised donation</span></div>
+            <div><strong>{{ "%.3f"|format(tracked_hours) }}</strong><span>Tracked hours</span></div>
             <div><strong>{{ record.eta_days }}</strong><span>ETA days</span></div>
             <div><strong>{{ record.pool_status|replace("_", " ")|title }}</strong><span>Lane</span></div>
           </div>
         </article>
       </section>
+
+      {% if can_manage_tasks %}
+        <section class="request-progress-card timer-panel">
+          <div class="studio-section-title">
+            <div>
+              <span class="label">Studio clock</span>
+              <h2>{{ "Clock running" if timer_running else "Track project time" }}</h2>
+            </div>
+            <span>{{ "%.3f"|format(tracked_hours) }} hours logged</span>
+          </div>
+          <div class="timer-actions">
+            {% if timer_running %}
+              <form method="post" action="{{ url_for('stop_project_timer', reference=record.reference) }}">
+                <button class="submit-button" type="submit">Stop timer</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('start_project_timer', reference=record.reference) }}">
+                <input name="note" placeholder="What are you working on?" />
+                <button class="submit-button" type="submit">Start timer</button>
+              </form>
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
 
       <section class="detail-grid">
         <article class="progress-result">

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terms | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="legal-shell">
+    <header class="legal-header">
+      <a class="brand" href="{{ url_for('home') }}">
+        <img class="nav-logo" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
+        <span>
+          <strong>Thunder Buddies Studios</strong>
+          <small>Legal / Terms / EULA</small>
+        </span>
+      </a>
+      <a class="quiet-link" href="{{ url_for('home') }}">Back home</a>
+    </header>
+
+    <main class="legal-page">
+      <section class="legal-hero">
+        <span class="label">Important notice</span>
+        <h1>All mod services on this site are free.</h1>
+        <p>
+          Thunder Buddies Studios does not sell Arma Reforger mods, does not require payment
+          to make mods, and does not provide gameplay perks, access, priority, or counter-value
+          for donations. Any donation guidance shown on the website is an informational tool
+          estimating time and effort only.
+        </p>
+      </section>
+
+      <nav class="legal-tabs" aria-label="Legal sections">
+        <a href="#website">Website Terms</a>
+        <a href="#discord">Discord / OAuth2</a>
+        <a href="#donations">Free Services</a>
+        <a href="#bohemia">Bohemia Compliance</a>
+        <a href="#mods">Mod EULA</a>
+      </nav>
+
+      <section id="website" class="legal-panel">
+        <span class="label">Website terms</span>
+        <h2>At-will, non-contractual use</h2>
+        <p>
+          Use of this website, project dashboard, request builder, progress tracker, and studio
+          tools is voluntary and at will. Submitting a request, creating an account, receiving a
+          reference number, or seeing an estimated timeline does not create a contract,
+          employment relationship, purchase order, service-level agreement, paid commission, or
+          obligation for Thunder Buddies Studios to perform work.
+        </p>
+        <p>
+          Thunder Buddies Studios may accept, reject, pause, modify, archive, or remove requests
+          at any time. All tools, scoring, estimated hours, production points, donation
+          suggestions, and timelines are advisory and may change after review.
+        </p>
+        <p>
+          The website is provided as is. We do not guarantee availability, uninterrupted service,
+          saved data, project completion, compatibility, or future updates.
+        </p>
+      </section>
+
+      <section id="discord" class="legal-panel">
+        <span class="label">Discord bot, OAuth2, webhooks, rich presence</span>
+        <h2>Discord login and integrations</h2>
+        <p>
+          Discord login uses OAuth2. When you choose to sign in with Discord, Discord asks you to
+          authorize the requested scope. This site currently uses the basic identify scope to create
+          or connect a customer account. We may store your Discord user id, display name, avatar
+          reference, login session, request references, and project activity needed to operate the
+          portal.
+        </p>
+        <p>
+          Discord bot features, webhooks, and rich presence features may be used to send project
+          status, request references, studio activity, or presence-style updates between this site,
+          Discord, and authorized studio systems. Do not submit secrets, passwords, tokens, private
+          keys, or sensitive personal information through Discord messages, webhook channels, or
+          project notes.
+        </p>
+        <p>
+          Use of Discord remains governed by Discord's own terms, privacy policy, developer terms,
+          developer policy, OAuth2 rules, bot token rules, webhook rules, and rich presence
+          documentation. Bot tokens and OAuth tokens are credentials and must not be shared publicly.
+        </p>
+        <ul>
+          <li><a href="https://discord.com/terms">Discord Terms of Service</a></li>
+          <li><a href="https://discord.com/privacy">Discord Privacy Policy</a></li>
+          <li><a href="https://docs.discord.com/developers/platform/oauth2-and-permissions">Discord OAuth2 and Permissions</a></li>
+          <li><a href="https://docs.discord.com/developers/discord-social-sdk/development-guides/setting-rich-presence">Discord Rich Presence documentation</a></li>
+        </ul>
+      </section>
+
+      <section id="donations" class="legal-panel">
+        <span class="label">No monetization</span>
+        <h2>Free services and donation-only support</h2>
+        <p>
+          Thunder Buddies Studios does not ask for money to make mods. Mod work described through
+          this site is free and non-commercial. We do not sell mods, paid access, priority queues,
+          VIP features, gameplay advantages, private perks, bundled commercial services, or any
+          in-game return.
+        </p>
+        <p>
+          Donations, if accepted, are voluntary and must not be tied to gameplay access, mod access,
+          preferential treatment, priority development, exclusive rights, server benefits, or any
+          direct counter-value. Donation brackets, production points, advised donation amounts, and
+          time estimates are informational tools showing approximate effort and time spent.
+        </p>
+      </section>
+
+      <section id="bohemia" class="legal-panel">
+        <span class="label">Bohemia Interactive compliance</span>
+        <h2>Arma Reforger rules and EULA</h2>
+        <p>
+          All Arma Reforger-related work is intended to remain non-commercial and compliant with
+          Bohemia Interactive's Arma Reforger EULA, Workshop terms, Tools EULA, and game content
+          usage rules. Bohemia states that Arma Reforger is generally licensed for non-commercial
+          purposes and that voluntary donations without counter-value are the relevant donation
+          path unless an official monetization exception applies.
+        </p>
+        <p>
+          Thunder Buddies Studios is not Bohemia Interactive, is not endorsed by Bohemia
+          Interactive, and cannot grant rights beyond those allowed by Bohemia's terms or by the
+          rights holder of any dependency or third-party mod.
+        </p>
+        <ul>
+          <li><a href="https://reforger.armaplatform.com/eula">Arma Reforger EULA</a></li>
+          <li><a href="https://reforger.armaplatform.com/news/eula-faq">Arma Reforger EULA FAQ</a></li>
+          <li><a href="https://support.bohemia.net/arma-reforger">Bohemia Interactive Arma Reforger Support</a></li>
+        </ul>
+      </section>
+
+      <section id="mods" class="legal-panel">
+        <span class="label">Thunder Buddies Studios mod EULA</span>
+        <h2>End User License Agreement</h2>
+        <p><strong>Last Updated:</strong> April 14th 2026</p>
+        <p>
+          This End User License Agreement governs the use of all mods published by Thunder Buddies
+          Studios and created by Thunder Buddies Studios. By downloading, installing, accessing, or
+          using a Thunder Buddies Studios mod, you agree to be bound by this agreement.
+        </p>
+        <h3>1. Ownership</h3>
+        <p>All mods are the intellectual property of Thunder Buddies Studios. This agreement grants a limited license and does not transfer ownership.</p>
+        <h3>2. License Grant</h3>
+        <p>Mods are licensed under Bohemia Interactive's Arma Public License No Derivatives (APL-ND), subject to the additional restrictions in this agreement. You may use the mod for personal, non-commercial gameplay and run the mod on private or public servers in compliance with this agreement.</p>
+        <h3>3. Absolute Prohibition On Monetization</h3>
+        <p>Under no circumstances may any Thunder Buddies Studios mod, or any portion of it, be used for monetization. This includes paid server access, priority queues, reserved slots, VIP features, donations or subscriptions tied to gameplay access or advantages, indirect monetization, paywalls, or bundled commercial services.</p>
+        <h3>4. Redistribution</h3>
+        <p>You may not reupload or redistribute a mod in original or modified form, including as part of mod packs or collections, without prior written permission from Thunder Buddies Studios.</p>
+        <h3>5. No Derivative Works</h3>
+        <p>Derivative works, modifications, edits, repacks, altered versions, asset extraction, redistribution, and reverse engineering for redistribution are prohibited. Private server configuration that does not modify the mod files is permitted.</p>
+        <h3>6. No Support Obligation</h3>
+        <p>Mods are provided as is, without warranty or guarantee of support or future updates.</p>
+        <h3>7. Termination</h3>
+        <p>Any breach results in immediate and automatic termination of the license. Upon termination, all copies must be removed and use must cease.</p>
+        <h3>8. Reservation Of Rights</h3>
+        <p>All rights not expressly granted are reserved by Thunder Buddies Studios.</p>
+        <h3>9. Acceptance</h3>
+        <p>By using a mod, you confirm that you have read, understood, and agreed to this agreement.</p>
+        <h3>10. Prohibited Communities And Individuals</h3>
+        <p>None at this time.</p>
+        <p class="legal-final">Thunder Buddies Studios. Created by Thunder Buddies Studios. All Rights Reserved.</p>
+      </section>
+    </main>
+  </body>
+</html>

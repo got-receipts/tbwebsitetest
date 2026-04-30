@@ -705,6 +705,16 @@ meter {
   font-weight: 800;
 }
 
+.timer-panel {
+  margin-bottom: 18px;
+}
+
+.timer-actions form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+}
+
 .module-summary {
   display: grid;
   gap: 12px;
@@ -1281,6 +1291,36 @@ meter {
   align-self: end;
 }
 
+.project-clock-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr auto;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.project-clock-row form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr auto;
+}
+
+.project-clock-row form:last-child {
+  grid-template-columns: auto;
+}
+
+.project-clock-row button {
+  background: var(--gold);
+  border: 0;
+  border-radius: 8px;
+  color: #050708;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
 .pipeline-grid {
   grid-template-columns: repeat(2, 1fr);
 }
@@ -1726,6 +1766,103 @@ code {
 .complexity-fineprint {
   margin-top: 18px;
   padding: 12px 0 0;
+}
+
+.tiny-legal-link {
+  color: rgba(246, 198, 91, 0.72);
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+.legal-shell {
+  background:
+    radial-gradient(circle at top left, rgba(71, 213, 195, 0.1), transparent 30rem),
+    #050708;
+}
+
+.legal-header {
+  align-items: center;
+  background: rgba(5, 7, 8, 0.88);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  padding: 16px clamp(18px, 5vw, 70px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.legal-page {
+  padding: clamp(34px, 6vw, 74px) clamp(18px, 6vw, 92px);
+}
+
+.legal-hero {
+  max-width: 980px;
+  margin-bottom: 24px;
+}
+
+.legal-hero h1 {
+  font-size: clamp(2.6rem, 6vw, 6.2rem);
+}
+
+.legal-hero p,
+.legal-panel p,
+.legal-panel li {
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.legal-tabs {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 8px;
+}
+
+.legal-tabs a {
+  background: rgba(255, 255, 255, 0.055);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 900;
+  padding: 10px 12px;
+}
+
+.legal-panel {
+  background: rgba(17, 24, 32, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+  padding: clamp(18px, 4vw, 28px);
+}
+
+.legal-panel h2 {
+  font-size: clamp(1.8rem, 3vw, 3rem);
+}
+
+.legal-panel h3 {
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.legal-panel a {
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.legal-final {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  margin-top: 20px;
+  padding-top: 14px;
 }
 
 .modal-backdrop {
