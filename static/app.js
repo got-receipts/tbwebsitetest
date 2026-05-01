@@ -18,6 +18,15 @@ const workshopSearch = document.querySelector("#workshopSearch");
 const workshopSearchButton = document.querySelector("#workshopSearchButton");
 const workshopStatus = document.querySelector("#workshopStatus");
 const pointBalanceNotice = document.querySelector("#pointBalanceNotice");
+const donationForm = document.querySelector("#donationForm");
+const charitySearchInput = document.querySelector("#charitySearch");
+const charityCauseFilter = document.querySelector("#charityCauseFilter");
+const charitySelect = document.querySelector("#charitySelect");
+const charityFilterStatus = document.querySelector("#charityFilterStatus");
+const donationPointsInput = document.querySelector("#donationPoints");
+const donationValuePreview = document.querySelector("#donationValuePreview");
+const donationBalancePreview = document.querySelector("#donationBalancePreview");
+const publicCharityRows = Array.from(document.querySelectorAll("#publicCharityList .client-request-row"));
 const submitButton = form?.querySelector("button[type='submit']");
 const accountPointBalance = Number(form?.dataset.pointBalance || 0);
 const steamLinked = form?.dataset.steamLinked !== "false";
@@ -152,6 +161,79 @@ function escapeHtml(value = "") {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function syncDonationPreview() {
+  if (!donationForm || !donationPointsInput || !donationValuePreview || !donationBalancePreview) return;
+  const rate = Number(donationForm.dataset.pointCashRate || 0);
+  const pointBalance = Number(donationForm.dataset.pointBalance || 0);
+  const points = Number(donationPointsInput.value || 0);
+  const estimatedValue = points * rate;
+  const remainingPoints = pointBalance - points;
+
+  if (points > 0) {
+    donationValuePreview.textContent = `${points.toFixed(3)} points is about $${formatCurrency(estimatedValue)}.`;
+    if (remainingPoints < 0) {
+      donationBalancePreview.textContent = `This donation exceeds your bank by ${Math.abs(remainingPoints).toFixed(3)} points.`;
+      donationBalancePreview.classList.add("danger-text");
+    } else {
+      donationBalancePreview.textContent = `Remaining bank after donation: ${remainingPoints.toFixed(3)} points, about $${formatCurrency(remainingPoints * rate)}.`;
+      donationBalancePreview.classList.remove("danger-text");
+    }
+    return;
+  }
+
+  donationValuePreview.textContent = "Enter points to preview the donation amount.";
+  donationBalancePreview.textContent = `Remaining bank after donation: $${formatCurrency(pointBalance * rate)} in value.`;
+  donationBalancePreview.classList.remove("danger-text");
+}
+
+function syncVisibleCharityOption() {
+  if (!charitySelect) return;
+  const selectedOption = charitySelect.selectedOptions[0];
+  if (selectedOption && !selectedOption.hidden) return;
+  const firstVisible = Array.from(charitySelect.options).find((option) => !option.hidden);
+  if (firstVisible) charitySelect.value = firstVisible.value;
+}
+
+function filterCharityList() {
+  if (!charitySelect || !charityFilterStatus) return;
+  const searchValue = (charitySearchInput?.value || "").trim().toLowerCase();
+  const causeValue = (charityCauseFilter?.value || "").trim().toLowerCase();
+  let visibleCount = 0;
+
+  Array.from(charitySelect.options).forEach((option) => {
+    if (option.value === "custom") {
+      option.hidden = false;
+      return;
+    }
+    const name = option.dataset.charityName || "";
+    const cause = option.dataset.charityCause || "";
+    const matchesSearch = !searchValue || name.includes(searchValue) || cause.includes(searchValue);
+    const matchesCause = !causeValue || cause === causeValue;
+    option.hidden = !(matchesSearch && matchesCause);
+    if (!option.hidden) visibleCount += 1;
+  });
+
+  publicCharityRows.forEach((row) => {
+    const name = row.dataset.charityName || "";
+    const cause = row.dataset.charityCause || "";
+    const matchesSearch = !searchValue || name.includes(searchValue) || cause.includes(searchValue);
+    const matchesCause = !causeValue || cause === causeValue;
+    row.hidden = !(matchesSearch && matchesCause);
+  });
+
+  charityFilterStatus.textContent = visibleCount
+    ? `${visibleCount} nonprofits match the current filters.`
+    : "No nonprofits match the current filters. Use Custom GoFundMe nonprofit if needed.";
+  syncVisibleCharityOption();
 }
 
 function renderWorkshopDependency(dependency) {
@@ -299,6 +381,10 @@ workshopSearch?.addEventListener("keydown", (event) => {
   }
 });
 
+donationPointsInput?.addEventListener("input", syncDonationPreview);
+charitySearchInput?.addEventListener("input", filterCharityList);
+charityCauseFilter?.addEventListener("change", filterCharityList);
+
 deadline?.addEventListener("change", calculateScore);
 lookupButton?.addEventListener("click", lookupReference);
 lookupInput?.addEventListener("keydown", (event) => {
@@ -384,3 +470,5 @@ function syncAccessCodeField() {
 
 roleSelect?.addEventListener("change", syncAccessCodeField);
 syncAccessCodeField();
+syncDonationPreview();
+filterCharityList();

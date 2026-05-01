@@ -311,13 +311,29 @@
           <article class="donation-panel">
             <span class="label">Charity points <span class="info-dot" title="Allocates point value from your point bank. External donation fulfillment is tracked separately.">i</span></span>
             <h2>Use points for charity</h2>
-            <p>{{ user.account_points }} points in bank</p>
-            <form method="post" action="{{ url_for('donate_points') }}">
+            <p>{{ user.account_points }} points in bank | about ${{ "%.2f"|format(user.account_points * point_cash_rate) }} donation value</p>
+            <form id="donationForm" method="post" action="{{ url_for('donate_points') }}" data-point-cash-rate="{{ point_cash_rate }}" data-point-balance="{{ user.account_points }}">
+              <div class="donation-filter-grid">
+                <label>
+                  Search nonprofits
+                  <input id="charitySearch" type="search" placeholder="Search by nonprofit name or cause" autocomplete="off" />
+                </label>
+                <label>
+                  Filter by cause
+                  <select id="charityCauseFilter">
+                    <option value="">All causes</option>
+                    {% for cause in featured_charity_causes %}
+                      <option value="{{ cause }}">{{ cause }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+              </div>
+              <p class="mini-score" id="charityFilterStatus">{{ featured_charities|length }} nonprofits available.</p>
               <label>
                 Nonprofit
-                <select name="charity_id">
+                <select id="charitySelect" name="charity_id" size="8">
                   {% for charity in featured_charities %}
-                    <option value="{{ charity.id }}">{{ charity.name }} - {{ charity.cause }}</option>
+                    <option value="{{ charity.id }}" data-charity-name="{{ charity.name|lower }}" data-charity-cause="{{ charity.cause|lower }}">{{ charity.name }} - {{ charity.cause }}</option>
                   {% endfor %}
                   <option value="custom">Custom GoFundMe nonprofit</option>
                 </select>
@@ -332,8 +348,11 @@
               </label>
               <label>
                 Points to allocate
-                <input name="points" type="number" min="0.001" step="0.001" max="{{ user.account_points }}" placeholder="25" required />
+                <input id="donationPoints" name="points" type="number" min="0.001" step="0.001" max="{{ user.account_points }}" placeholder="25" required />
               </label>
+              <p class="mini-score">1 point currently converts to about ${{ "%.2f"|format(point_cash_rate) }}.</p>
+              <p class="mini-score" id="donationValuePreview">Enter points to preview the donation amount.</p>
+              <p class="mini-score" id="donationBalancePreview">Remaining bank after donation: ${{ "%.2f"|format(user.account_points * point_cash_rate) }} in value.</p>
               <label>
                 Note
                 <input name="note" placeholder="Optional donation note" />
@@ -352,9 +371,9 @@
           <article>
             <span class="label">Featured nonprofits</span>
             <h2>Public list</h2>
-            <div class="client-request-list">
+            <div class="client-request-list" id="publicCharityList">
               {% for charity in featured_charities %}
-                <a class="client-request-row" href="{{ charity.url }}" target="_blank" rel="noopener">
+                <a class="client-request-row" href="{{ charity.url }}" target="_blank" rel="noopener" data-charity-name="{{ charity.name|lower }}" data-charity-cause="{{ charity.cause|lower }}">
                   <span>{{ charity.cause }}</span>
                   <strong>{{ charity.name }}</strong>
                   <em>{{ charity.url }}</em>
@@ -369,9 +388,9 @@
             <div class="transaction-list">
               {% for donation in user.charity_donations[:10] %}
                 <div class="transaction-row debit">
-                  <span>-{{ donation.points }} pts</span>
+                  <span>${{ "%.2f"|format(donation.estimated_value or 0) }} | -{{ donation.points }} pts</span>
                   <strong>{{ donation.charity_name }}</strong>
-                  <em>{{ donation.charity_name }} thanks you. {{ donation.status }}</em>
+                  <em>{{ donation.status }} | Estimated donation value ${{ "%.2f"|format(donation.estimated_value or 0) }}</em>
                 </div>
               {% else %}
                 <p class="empty-state">No charity allocations yet.</p>

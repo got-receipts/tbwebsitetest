@@ -422,32 +422,87 @@ WORKSHOP_BASE_URL = "https://reforger.armaplatform.com/workshop"
 WORKSHOP_PAGE_SIZE = 16
 WORKSHOP_CACHE_SECONDS = 60 * 20
 WORKSHOP_CACHE = {}
-FEATURED_CHARITIES = [
-    {
-        "id": "gofundme_org",
-        "name": "GoFundMe.org",
-        "cause": "Crisis relief and community support",
-        "url": "https://www.gofundme.org/",
-    },
-    {
-        "id": "essentials_fund",
-        "name": "GoFundMe.org Essentials Fund",
-        "cause": "Emergency essentials support",
-        "url": "https://www.gofundme.org/",
-    },
-    {
-        "id": "api_alliance",
-        "name": "Api Alliance",
-        "cause": "Human rights",
-        "url": "https://www.gofundme.com/charity/api-alliance",
-    },
-    {
-        "id": "api_foundation",
-        "name": "Api Foundation",
-        "cause": "Sports and recreation",
-        "url": "https://www.gofundme.com/charity/api-foundation",
-    },
-]
+FEATURED_CHARITIES = sorted(
+    [
+        {"id": "aclu_foundation", "name": "ACLU Foundation", "cause": "Civil liberties", "url": "https://www.aclu.org/"},
+        {"id": "against_malaria_foundation", "name": "Against Malaria Foundation", "cause": "Global health", "url": "https://www.againstmalaria.com/"},
+        {"id": "alzheimers_association", "name": "Alzheimer's Association", "cause": "Alzheimer's care and research", "url": "https://www.alz.org/"},
+        {"id": "american_cancer_society", "name": "American Cancer Society", "cause": "Cancer research and patient support", "url": "https://www.cancer.org/"},
+        {"id": "american_heart_association", "name": "American Heart Association", "cause": "Heart health and research", "url": "https://www.heart.org/"},
+        {"id": "aspca", "name": "ASPCA", "cause": "Animal rescue and welfare", "url": "https://www.aspca.org/"},
+        {"id": "best_friends_animal_society", "name": "Best Friends Animal Society", "cause": "Animal rescue and adoption", "url": "https://bestfriends.org/"},
+        {"id": "big_brothers_big_sisters", "name": "Big Brothers Big Sisters of America", "cause": "Youth mentorship", "url": "https://www.bbbs.org/"},
+        {"id": "black_girls_code", "name": "Black Girls Code", "cause": "STEM education", "url": "https://www.blackgirlscode.com/"},
+        {"id": "boys_girls_clubs", "name": "Boys & Girls Clubs of America", "cause": "Youth development", "url": "https://www.bgca.org/"},
+        {"id": "breakthrough_t1d", "name": "Breakthrough T1D", "cause": "Type 1 diabetes research", "url": "https://www.breakthrought1d.org/"},
+        {"id": "care", "name": "CARE", "cause": "Global poverty and humanitarian relief", "url": "https://www.care.org/"},
+        {"id": "charity_water", "name": "charity: water", "cause": "Clean water access", "url": "https://www.charitywater.org/"},
+        {"id": "code_org", "name": "Code.org", "cause": "Computer science education", "url": "https://code.org/"},
+        {"id": "covenant_house", "name": "Covenant House", "cause": "Youth homelessness", "url": "https://www.covenanthouse.org/"},
+        {"id": "direct_relief", "name": "Direct Relief", "cause": "Medical aid and disaster relief", "url": "https://www.directrelief.org/"},
+        {"id": "doctors_without_borders", "name": "Doctors Without Borders", "cause": "Emergency medical relief", "url": "https://www.doctorswithoutborders.org/"},
+        {"id": "donorschoose", "name": "DonorsChoose", "cause": "Classroom funding", "url": "https://www.donorschoose.org/"},
+        {"id": "eff", "name": "Electronic Frontier Foundation", "cause": "Digital rights", "url": "https://www.eff.org/"},
+        {"id": "enterprise_community_partners", "name": "Enterprise Community Partners", "cause": "Affordable housing", "url": "https://www.enterprisecommunity.org/"},
+        {"id": "feeding_america", "name": "Feeding America", "cause": "Hunger relief", "url": "https://www.feedingamerica.org/"},
+        {"id": "fisher_house_foundation", "name": "Fisher House Foundation", "cause": "Military and veteran family housing", "url": "https://www.fisherhouse.org/"},
+        {"id": "food_for_the_poor", "name": "Food For The Poor", "cause": "Poverty relief", "url": "https://foodforthepoor.org/"},
+        {"id": "girls_who_code", "name": "Girls Who Code", "cause": "STEM education", "url": "https://girlswhocode.com/"},
+        {"id": "globalgiving", "name": "GlobalGiving", "cause": "Grassroots nonprofit funding", "url": "https://www.globalgiving.org/"},
+        {"id": "gofundme_org", "name": "GoFundMe.org", "cause": "Crisis relief and community support", "url": "https://www.gofundme.org/"},
+        {"id": "habitat_for_humanity", "name": "Habitat for Humanity", "cause": "Housing and neighborhood development", "url": "https://www.habitat.org/"},
+        {"id": "heart_to_heart_international", "name": "Heart to Heart International", "cause": "Humanitarian medical relief", "url": "https://www.hearttoheart.org/"},
+        {"id": "heifer_international", "name": "Heifer International", "cause": "Food security and livelihoods", "url": "https://www.heifer.org/"},
+        {"id": "human_rights_watch", "name": "Human Rights Watch", "cause": "Human rights", "url": "https://www.hrw.org/"},
+        {"id": "international_medical_corps", "name": "International Medical Corps", "cause": "Emergency medical relief", "url": "https://internationalmedicalcorps.org/"},
+        {"id": "international_rescue_committee", "name": "International Rescue Committee", "cause": "Refugee and crisis response", "url": "https://www.rescue.org/"},
+        {"id": "junior_achievement", "name": "Junior Achievement USA", "cause": "Youth financial literacy", "url": "https://jausa.ja.org/"},
+        {"id": "khan_academy", "name": "Khan Academy", "cause": "Free education", "url": "https://www.khanacademy.org/"},
+        {"id": "leukemia_lymphoma_society", "name": "Leukemia & Lymphoma Society", "cause": "Blood cancer research", "url": "https://www.lls.org/"},
+        {"id": "make_a_wish", "name": "Make-A-Wish America", "cause": "Critical illness support for children", "url": "https://wish.org/"},
+        {"id": "map_international", "name": "MAP International", "cause": "Medicine and health access", "url": "https://www.map.org/"},
+        {"id": "meals_on_wheels", "name": "Meals on Wheels America", "cause": "Senior hunger relief", "url": "https://www.mealsonwheelsamerica.org/"},
+        {"id": "mental_health_america", "name": "Mental Health America", "cause": "Mental health advocacy", "url": "https://mhanational.org/"},
+        {"id": "mercy_corps", "name": "Mercy Corps", "cause": "Humanitarian aid and recovery", "url": "https://www.mercycorps.org/"},
+        {"id": "muscular_dystrophy_association", "name": "Muscular Dystrophy Association", "cause": "Neuromuscular disease research", "url": "https://www.mda.org/"},
+        {"id": "naacp_ldf", "name": "NAACP Legal Defense Fund", "cause": "Racial justice", "url": "https://naacpldf.org/"},
+        {"id": "nami", "name": "National Alliance on Mental Illness", "cause": "Mental health support", "url": "https://www.nami.org/"},
+        {"id": "national_ms_society", "name": "National Multiple Sclerosis Society", "cause": "Multiple sclerosis research and support", "url": "https://www.nationalmssociety.org/"},
+        {"id": "nature_conservancy", "name": "The Nature Conservancy", "cause": "Land and water conservation", "url": "https://www.nature.org/"},
+        {"id": "oceana", "name": "Oceana", "cause": "Ocean conservation", "url": "https://oceana.org/"},
+        {"id": "operation_homefront", "name": "Operation Homefront", "cause": "Military family support", "url": "https://operationhomefront.org/"},
+        {"id": "oxfam_america", "name": "Oxfam America", "cause": "Poverty and disaster response", "url": "https://www.oxfamamerica.org/"},
+        {"id": "parkinsons_foundation", "name": "Parkinson's Foundation", "cause": "Parkinson's care and research", "url": "https://www.parkinson.org/"},
+        {"id": "partners_in_health", "name": "Partners In Health", "cause": "Global health equity", "url": "https://www.pih.org/"},
+        {"id": "planned_parenthood", "name": "Planned Parenthood Federation of America", "cause": "Reproductive health care", "url": "https://www.plannedparenthood.org/"},
+        {"id": "project_hope", "name": "Project HOPE", "cause": "Global health and disaster response", "url": "https://www.projecthope.org/"},
+        {"id": "rainforest_trust", "name": "Rainforest Trust", "cause": "Rainforest conservation", "url": "https://www.rainforesttrust.org/"},
+        {"id": "red_cross", "name": "American Red Cross", "cause": "Disaster relief and blood services", "url": "https://www.redcross.org/"},
+        {"id": "rmhc", "name": "Ronald McDonald House Charities", "cause": "Family support during pediatric care", "url": "https://rmhc.org/"},
+        {"id": "room_to_read", "name": "Room to Read", "cause": "Literacy and girls' education", "url": "https://www.roomtoread.org/"},
+        {"id": "rotary_foundation", "name": "The Rotary Foundation of Rotary International", "cause": "Global grants and community projects", "url": "https://www.rotary.org/en/donate"},
+        {"id": "save_the_children", "name": "Save the Children", "cause": "Child protection and relief", "url": "https://www.savethechildren.org/us/"},
+        {"id": "sierra_club_foundation", "name": "Sierra Club Foundation", "cause": "Environmental protection", "url": "https://www.sierraclubfoundation.org/"},
+        {"id": "special_olympics", "name": "Special Olympics", "cause": "Inclusive sports", "url": "https://www.specialolympics.org/"},
+        {"id": "st_jude", "name": "St. Jude Children's Research Hospital", "cause": "Pediatric cancer research", "url": "https://www.stjude.org/"},
+        {"id": "susan_g_komen", "name": "Susan G. Komen", "cause": "Breast cancer research and support", "url": "https://www.komen.org/"},
+        {"id": "team_rubicon", "name": "Team Rubicon", "cause": "Disaster response", "url": "https://teamrubiconusa.org/"},
+        {"id": "trevor_project", "name": "The Trevor Project", "cause": "LGBTQ youth crisis support", "url": "https://www.thetrevorproject.org/"},
+        {"id": "tunnel_to_towers", "name": "Tunnel to Towers Foundation", "cause": "First responder and veteran support", "url": "https://t2t.org/"},
+        {"id": "uncf", "name": "UNCF", "cause": "Scholarships and higher education", "url": "https://uncf.org/"},
+        {"id": "unicef_usa", "name": "UNICEF USA", "cause": "Children's humanitarian aid", "url": "https://www.unicefusa.org/"},
+        {"id": "water_org", "name": "Water.org", "cause": "Water and sanitation access", "url": "https://water.org/"},
+        {"id": "wikimedia_foundation", "name": "Wikimedia Foundation", "cause": "Open knowledge", "url": "https://wikimediafoundation.org/"},
+        {"id": "wounded_warrior_project", "name": "Wounded Warrior Project", "cause": "Veteran support", "url": "https://www.woundedwarriorproject.org/"},
+        {"id": "world_central_kitchen", "name": "World Central Kitchen", "cause": "Disaster meal relief", "url": "https://wck.org/"},
+        {"id": "world_resources_institute", "name": "World Resources Institute", "cause": "Climate and sustainability", "url": "https://www.wri.org/"},
+        {"id": "world_vision", "name": "World Vision", "cause": "Child sponsorship and humanitarian aid", "url": "https://www.worldvision.org/"},
+        {"id": "world_wildlife_fund", "name": "World Wildlife Fund", "cause": "Wildlife conservation", "url": "https://www.worldwildlife.org/"},
+        {"id": "ymca", "name": "YMCA of the USA", "cause": "Youth and community support", "url": "https://www.ymca.org/"},
+        {"id": "ywca", "name": "YWCA USA", "cause": "Women, racial justice, and community support", "url": "https://www.ywca.org/"},
+    ],
+    key=lambda item: item["name"],
+)
 TEST_ACCOUNTS = [
     {
         "username": "admin_test",
@@ -1346,6 +1401,8 @@ def client_portal_context(user, records, active_tab, error=""):
         "tabs": CLIENT_TABS,
         "active_tab": active_tab,
         "gameplay_point_rate": GAMEPLAY_POINT_RATE,
+        "point_cash_rate": point_cash_value(1),
+        "featured_charity_causes": sorted({item["cause"] for item in FEATURED_CHARITIES}),
         "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
         "featured_charities": FEATURED_CHARITIES,
         "gofundme_search_url": GOFUNDME_CHARITY_SEARCH_URL,
@@ -1897,7 +1954,10 @@ def donate_points():
             },
         )
         session["account"] = public_user(saved)
-        session["client_notice"] = f"Donation submitted successfully. {charity_name} thanks you for supporting their organization."
+        session["client_notice"] = (
+            f"Donation submitted successfully. ${value:,.2f} allocated to {charity_name} "
+            f"from {points} points."
+        )
         break
     save_users(users)
     return redirect(url_for("client_portal", tab="Donate"))

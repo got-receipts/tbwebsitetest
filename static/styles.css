@@ -446,6 +446,12 @@ meter {
   font-weight: 800;
 }
 
+.donation-filter-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
 .lookup {
   display: grid;
   gap: 12px;
@@ -981,6 +987,10 @@ meter {
 
 .donation-panel {
   border-color: rgba(246, 198, 91, 0.28);
+}
+
+.donation-panel select[size] {
+  min-height: 190px;
 }
 
 .eta-badge,
