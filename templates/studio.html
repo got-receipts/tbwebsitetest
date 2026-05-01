@@ -53,6 +53,18 @@
         </form>
       </header>
 
+      {% if notice %}
+        <div class="studio-alert soft">{{ notice }}</div>
+      {% endif %}
+      {% if studio_lock %}
+        <div class="studio-alert">
+          {{ lock_message }}
+          {% if is_admin %}
+            <button class="widget-button compact" type="button" data-modal="studioLockModal">Manage lock</button>
+          {% endif %}
+        </div>
+      {% endif %}
+
       {% if active_tab == "Command" %}
         <section class="role-command-center">
           <div class="role-hero">
@@ -484,6 +496,18 @@
             </div>
           </article>
           <article class="complexity-panel">
+            <span class="label">Console verification</span>
+            <h2>{{ console_verification_queue|selectattr('status', 'equalto', 'Pending verification')|list|length }} pending</h2>
+            <button class="widget-button compact" type="button" data-modal="consoleAdminModal">Review console tickets</button>
+            <p>Approve Xbox and PlayStation playtime proof, award points, or request better screenshots.</p>
+          </article>
+          <article class="complexity-panel">
+            <span class="label">Limited studio mode</span>
+            <h2>{{ "Active" if studio_settings.limited_mode or studio_settings.lock_all else "Off" }}</h2>
+            <button class="widget-button compact" type="button" data-modal="studioLockModal">Open lock controls</button>
+            <p>Owner/admin controls for stand-by mode, Bohemia update holds, tool restrictions, and full system lock.</p>
+          </article>
+          <article class="complexity-panel">
             <span class="label">Role distribution</span>
             <h2>Access map</h2>
             <div class="module-summary">
@@ -537,6 +561,107 @@
         </section>
       {% endif %}
     </main>
+
+    {% if active_tab == "Admin" and is_admin %}
+      <div class="modal-backdrop" id="consoleAdminModal" aria-hidden="true">
+        <section class="site-modal widget-modal wide-modal" role="dialog" aria-modal="true" aria-label="Console verification admin">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Console proof queue</span>
+          <h2>Verification tickets</h2>
+          <div class="transaction-list slim-ledger">
+            {% for item in console_verification_queue[:20] %}
+              <form class="admin-review-row" method="post" action="{{ url_for('admin_review_console_verification', user_id=item.user_id, verification_id=item.id) }}">
+                <div>
+                  <span>{{ item.platform|title }} | {{ item.status }}</span>
+                  <strong>{{ item.username }} | {{ item.account_name }}{% if item.account_tag %} {{ item.account_tag }}{% endif %}</strong>
+                  <em>{{ item.claimed_hours }} claimed hours | submitted {{ item.created_at }}</em>
+                  {% if item.profile_url %}
+                    <a class="quiet-link" href="{{ item.profile_url }}" target="_blank" rel="noopener">Open account link</a>
+                  {% endif %}
+                  {% if item.proof_url %}
+                    <a class="quiet-link" href="{{ item.proof_url }}" target="_blank" rel="noopener">Open proof</a>
+                  {% endif %}
+                </div>
+                <label>
+                  Status
+                  <select name="status">
+                    {% for status in ["Pending verification", "Approved", "Rejected", "Needs more proof"] %}
+                      <option value="{{ status }}" {{ "selected" if item.status == status else "" }}>{{ status }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Award points
+                  <input name="awarded_points" type="number" min="0" step="0.001" value="{{ item.awarded_points or 0 }}" />
+                </label>
+                <label>
+                  Admin note
+                  <input name="admin_note" value="{{ item.admin_note or '' }}" placeholder="Visible review note" />
+                </label>
+                <button class="submit-button" type="submit">Save review</button>
+              </form>
+            {% else %}
+              <p class="empty-state">No console verification tickets yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="studioLockModal" aria-hidden="true">
+        <section class="site-modal widget-modal wide-modal" role="dialog" aria-modal="true" aria-label="Studio lock controls">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Owner/admin control</span>
+          <h2>Limited studio mode</h2>
+          <p>Use this when the owner is away, Bohemia Interactive updates are pending, or projects need to be placed on stand-by. Staff cannot override these locks.</p>
+          <form class="lock-control-form" method="post" action="{{ url_for('admin_update_studio_lock') }}">
+            <label class="wide">
+              Lock reason
+              <input name="reason" value="{{ studio_settings.reason }}" placeholder="Owner away, Bohemia update, emergency maintenance" />
+            </label>
+            <label class="wide">
+              System message
+              <textarea name="message" placeholder="Explain what is paused and when the system will reopen">{{ studio_settings.message }}</textarea>
+            </label>
+            <div class="lock-check-grid">
+              {% for key, label in [
+                ("limited_mode", "Enable limited studio mode"),
+                ("owner_away", "Owner away / stand-by"),
+                ("bohemia_update_hold", "Bohemia update hold"),
+                ("standby_only", "Projects in stand-by only"),
+                ("pause_projects", "Lock project edits"),
+                ("disable_submissions", "Disable client submissions"),
+                ("disable_timers", "Disable staff/project clocks"),
+                ("disable_freelance", "Disable freelance claiming"),
+                ("disable_client_addons", "Disable client add-ons"),
+                ("disable_console_verification", "Disable console verification"),
+                ("hide_workshop_tools", "Hide workshop/dependency tools"),
+                ("lock_all", "Lock all tools")
+              ] %}
+                <label class="inline-check">
+                  <input name="{{ key }}" type="checkbox" {{ "checked" if studio_settings[key] else "" }} />
+                  {{ label }}
+                </label>
+              {% endfor %}
+            </div>
+            <div class="centered-actions">
+              <button class="submit-button" type="submit">Save restrictions</button>
+              <button class="secondary-link" name="lock_all_button" value="1" type="submit">Lock all</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    {% endif %}
+
+    {% if studio_lock and not is_admin %}
+      <div class="modal-backdrop open" id="studioLockedModal" aria-hidden="false">
+        <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="Studio locked">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">System locked</span>
+          <h2>Limited studio mode</h2>
+          <p>{{ lock_message }}</p>
+        </section>
+      </div>
+    {% endif %}
 
     {% if active_tab == "Command" %}
       {% for action in staff_stats.role_dashboard.actions %}

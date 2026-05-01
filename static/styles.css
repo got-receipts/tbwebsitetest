@@ -1868,6 +1868,10 @@ code {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.meaning-widgets {
+  padding-top: 44px;
+}
+
 .motion-card {
   background: rgba(17, 24, 32, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1979,6 +1983,14 @@ code {
 .complexity-fineprint {
   margin-top: 18px;
   padding: 12px 0 0;
+}
+
+.home-fineprint small {
+  color: rgba(238, 245, 245, 0.42);
+  display: block;
+  font-size: 0.62rem;
+  line-height: 1.5;
+  margin-top: 6px;
 }
 
 .tiny-legal-link {
@@ -2101,6 +2113,14 @@ code {
   box-shadow: var(--shadow);
   max-width: 560px;
   padding: 24px;
+  width: min(100%, 560px);
+}
+
+.wide-modal {
+  max-height: 88vh;
+  max-width: 980px;
+  overflow: auto;
+  width: min(100%, 980px);
 }
 
 .site-modal h2 {
@@ -2249,6 +2269,77 @@ code {
   gap: 10px;
 }
 
+.console-platform-fields,
+.lock-control-form,
+.admin-review-row {
+  display: grid;
+  gap: 12px;
+}
+
+.console-platform-fields {
+  margin-top: 10px;
+}
+
+.admin-review-row {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(130px, 0.8fr)) auto;
+  padding: 12px;
+  text-align: left;
+}
+
+.admin-review-row .quiet-link {
+  display: inline-flex;
+  margin-right: 8px;
+  margin-top: 6px;
+}
+
+.lock-check-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.lock-control-form .wide {
+  grid-column: 1 / -1;
+}
+
+.console-verification-modal form {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.donation-success-modal {
+  overflow: hidden;
+  position: relative;
+}
+
+.donation-success-modal h2 {
+  color: var(--gold);
+}
+
+.confetti-stage {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+.confetti-stage span {
+  animation: confettiDrop 1.65s cubic-bezier(0.16, 0.78, 0.38, 1) forwards;
+  animation-delay: var(--confetti-delay);
+  background: var(--confetti-color);
+  border-radius: 3px;
+  height: 12px;
+  opacity: 0;
+  position: absolute;
+  top: -18px;
+  transform: translateY(0) rotate(0deg);
+  width: 7px;
+}
+
 .admin-user-row {
   align-items: center;
   border: 1px solid rgba(255, 255, 255, 0.09);
@@ -2338,6 +2429,22 @@ code {
   }
 }
 
+@keyframes confettiDrop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0) rotate(0deg);
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-drift), 360px, 0) rotate(var(--confetti-rotate));
+  }
+}
+
 @keyframes panelRise {
   from {
     opacity: 0;
@@ -2398,6 +2505,8 @@ code {
   .client-grid,
   .complexity-dashboard,
   .workshop-toolbar,
+  .admin-review-row,
+  .lock-check-grid,
   .settings-grid {
     grid-template-columns: 1fr;
   }

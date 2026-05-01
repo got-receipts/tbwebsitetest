@@ -18,6 +18,8 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 REQUESTS_FILE = DATA_DIR / "requests.json"
 USERS_FILE = DATA_DIR / "users.json"
+STUDIO_SETTINGS_FILE = DATA_DIR / "studio_settings.json"
+CONSOLE_PROOF_UPLOAD_DIR = BASE_DIR / "static" / "uploads" / "console-verification"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -375,9 +377,28 @@ PHASES = [
 PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
 STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Settings", "Admin"]
-CLIENT_TABS = ["Overview", "Requests", "New Build", "Donate", "Account"]
+CLIENT_TABS = ["Overview", "Requests", "New Build", "Donate", "Account", "Console Verification"]
 ROLES = ["customer", "developer", "moderator", "tester", "staff", "admin"]
 STAFF_ROLES = {"developer", "moderator", "tester", "staff", "admin"}
+CONSOLE_PLATFORMS = ["steam", "xbox", "playstation"]
+DEFAULT_STUDIO_SETTINGS = {
+    "limited_mode": False,
+    "reason": "",
+    "message": "",
+    "updated_by": "",
+    "updated_at": "",
+    "lock_all": False,
+    "pause_projects": False,
+    "disable_submissions": False,
+    "disable_timers": False,
+    "disable_freelance": False,
+    "disable_client_addons": False,
+    "disable_console_verification": False,
+    "hide_workshop_tools": False,
+    "bohemia_update_hold": False,
+    "owner_away": False,
+    "standby_only": False,
+}
 ROLE_DASHBOARDS = {
     "admin": {
         "title": "Admin Command",
@@ -665,10 +686,13 @@ def workshop_initial_pages():
 
 def ensure_storage():
     DATA_DIR.mkdir(exist_ok=True)
+    CONSOLE_PROOF_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     if not REQUESTS_FILE.exists():
         REQUESTS_FILE.write_text("[]", encoding="utf-8")
     if not USERS_FILE.exists():
         USERS_FILE.write_text("[]", encoding="utf-8")
+    if not STUDIO_SETTINGS_FILE.exists():
+        STUDIO_SETTINGS_FILE.write_text(json.dumps(DEFAULT_STUDIO_SETTINGS, indent=2), encoding="utf-8")
     seed_test_accounts()
 
 
@@ -711,6 +735,9 @@ def seed_test_accounts():
                 "steam_playtime_minutes": 0,
                 "steam_minutes_credited": 0,
                 "steam_last_sync": "",
+                "preferred_platform": "steam",
+                "console_accounts": {},
+                "console_verifications": [],
                 "studio_time_entries": [],
             }
         )
@@ -752,6 +779,9 @@ def normalize_user(user):
     user.setdefault("steam_playtime_minutes", 0)
     user.setdefault("steam_minutes_credited", 0)
     user.setdefault("steam_last_sync", "")
+    user.setdefault("preferred_platform", "steam")
+    user.setdefault("console_accounts", {})
+    user.setdefault("console_verifications", [])
     user.setdefault("studio_time_entries", [])
     existing_transaction_ids = {item.get("id") for item in user.get("point_transactions", [])}
     for credit in user.get("supported_server_sessions", []):
@@ -804,6 +834,78 @@ def save_users(users):
     USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
 
 
+def load_studio_settings():
+    ensure_storage()
+    try:
+        settings = json.loads(STUDIO_SETTINGS_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        settings = {}
+    merged = dict(DEFAULT_STUDIO_SETTINGS)
+    merged.update(settings)
+    return merged
+
+
+def save_studio_settings(settings):
+    ensure_storage()
+    merged = dict(DEFAULT_STUDIO_SETTINGS)
+    merged.update(settings)
+    STUDIO_SETTINGS_FILE.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+    return merged
+
+
+def studio_lock_active():
+    settings = load_studio_settings()
+    return settings if settings.get("limited_mode") or settings.get("lock_all") else {}
+
+
+def studio_lock_blocks(action):
+    settings = studio_lock_active()
+    if not settings:
+        return False
+    if settings.get("lock_all"):
+        return True
+    action_flags = {
+        "projects": "pause_projects",
+        "submissions": "disable_submissions",
+        "timers": "disable_timers",
+        "freelance": "disable_freelance",
+        "addons": "disable_client_addons",
+        "console_verification": "disable_console_verification",
+    }
+    return bool(settings.get(action_flags.get(action, "")))
+
+
+def lock_message(settings=None):
+    settings = settings or load_studio_settings()
+    reason = settings.get("reason") or "studio limited mode"
+    detail = settings.get("message") or "Thunder Buddies Studios has paused this tool until the owner or admin team reopens it."
+    return f"This system has been locked due to {reason}. {detail}"
+
+
+def console_verification_queue(users):
+    queue = []
+    for user in users:
+        for item in user.get("console_verifications", []):
+            row = dict(item)
+            row["user_id"] = user["id"]
+            row["username"] = user.get("username", "")
+            row["email"] = user.get("email", "")
+            queue.append(row)
+    return sorted(queue, key=lambda item: item.get("created_at", ""), reverse=True)
+
+
+def has_verified_console_account(user):
+    return any(item.get("status") == "Approved" for item in user.get("console_verifications", []))
+
+
+def safe_upload_filename(prefix, original_name):
+    suffix = Path(original_name or "").suffix.lower()
+    if suffix not in {".png", ".jpg", ".jpeg", ".webp", ".pdf"}:
+        suffix = ".png"
+    safe_prefix = re.sub(r"[^a-zA-Z0-9_-]+", "-", prefix).strip("-") or "proof"
+    return f"{safe_prefix}_{secrets.token_hex(8)}{suffix}"
+
+
 def public_user(user):
     return {key: value for key, value in user.items() if key != "password_hash"}
 
@@ -845,6 +947,9 @@ def create_user(username, email, password, role="customer"):
         "steam_playtime_minutes": 0,
         "steam_minutes_credited": 0,
         "steam_last_sync": "",
+        "preferred_platform": "steam",
+        "console_accounts": {},
+        "console_verifications": [],
         "studio_time_entries": [],
     }
     users.append(user)
@@ -1389,6 +1494,7 @@ def client_metrics(records):
 
 def client_portal_context(user, records, active_tab, error=""):
     initial_pages = workshop_initial_pages()
+    studio_settings = load_studio_settings()
     return {
         "user": user,
         "records": records,
@@ -1406,6 +1512,11 @@ def client_portal_context(user, records, active_tab, error=""):
         "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
         "featured_charities": FEATURED_CHARITIES,
         "gofundme_search_url": GOFUNDME_CHARITY_SEARCH_URL,
+        "console_platforms": CONSOLE_PLATFORMS,
+        "studio_settings": studio_settings,
+        "studio_lock": studio_lock_active(),
+        "lock_message": lock_message(studio_settings),
+        "donation_success": session.pop("donation_success", None),
         "notice": session.pop("client_notice", ""),
         "error": error,
     }
@@ -1732,6 +1843,7 @@ def register_post():
     password = request.form.get("password", "")
     role = request.form.get("role", "customer")
     access_code = request.form.get("access_code", "")
+    preferred_platform = request.form.get("preferred_platform", "steam").strip().lower()
 
     if role not in ROLES:
         role = "customer"
@@ -1743,6 +1855,14 @@ def register_post():
         return render_template("login.html", mode="register", error="That role access code is not valid.", next_url=""), 403
 
     user = create_user(username, email, password, role)
+    if preferred_platform in CONSOLE_PLATFORMS:
+        users = load_users()
+        for saved in users:
+            if saved["id"] == user["id"]:
+                saved["preferred_platform"] = preferred_platform
+                user = saved
+                break
+        save_users(users)
     login_user(user)
     return redirect(url_for("dashboard"))
 
@@ -1794,6 +1914,104 @@ def update_client_account():
             break
     save_users(users)
     return redirect(url_for("client_portal", tab="Account"))
+
+
+@app.post("/client/platform")
+def update_client_platform():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Account"))
+
+    platform = request.form.get("preferred_platform", "steam").strip().lower()
+    if platform not in CONSOLE_PLATFORMS:
+        platform = "steam"
+    users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["preferred_platform"] = platform
+            if platform in {"xbox", "playstation"}:
+                accounts = saved.setdefault("console_accounts", {})
+                accounts[platform] = {
+                    "account_name": request.form.get("account_name", "").strip(),
+                    "account_tag": request.form.get("account_tag", "").strip(),
+                    "profile_url": request.form.get("profile_url", "").strip(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            session["account"] = public_user(saved)
+            break
+    save_users(users)
+    session["client_notice"] = "Platform preference saved."
+    return redirect(url_for("client_portal", tab="Account"))
+
+
+@app.post("/client/console-verification")
+def submit_console_verification():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Console Verification"))
+    if user.get("role") != "admin" and studio_lock_blocks("console_verification"):
+        session["client_notice"] = lock_message()
+        return redirect(url_for("client_portal", tab="Console Verification"))
+
+    platform = request.form.get("platform", "").strip().lower()
+    if platform not in {"xbox", "playstation"}:
+        session["client_notice"] = "Choose Xbox or PlayStation for console verification."
+        return redirect(url_for("client_portal", tab="Console Verification"))
+
+    account_name = request.form.get("account_name", "").strip()
+    account_tag = request.form.get("account_tag", "").strip()
+    profile_url = request.form.get("profile_url", "").strip()
+    proof = request.files.get("proof_image")
+    try:
+        claimed_hours = millipoints(request.form.get("claimed_hours", 0))
+    except ValueError:
+        claimed_hours = 0
+
+    if not account_name or claimed_hours <= 0 or not proof or not proof.filename:
+        session["client_notice"] = "Console verification needs account name, hours played, and a screenshot."
+        return redirect(url_for("client_portal", tab="Console Verification"))
+
+    filename = safe_upload_filename(f"{user['id']}_{platform}", proof.filename)
+    proof.save(CONSOLE_PROOF_UPLOAD_DIR / filename)
+    proof_url = url_for("static", filename=f"uploads/console-verification/{filename}")
+    verification_id = f"console_{secrets.token_hex(5)}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    users = load_users()
+    for saved in users:
+        if saved["id"] != user["id"]:
+            continue
+        saved["preferred_platform"] = platform
+        saved.setdefault("console_accounts", {})[platform] = {
+            "account_name": account_name,
+            "account_tag": account_tag,
+            "profile_url": profile_url,
+            "updated_at": now,
+        }
+        saved.setdefault("console_verifications", []).insert(
+            0,
+            {
+                "id": verification_id,
+                "platform": platform,
+                "account_name": account_name,
+                "account_tag": account_tag,
+                "profile_url": profile_url,
+                "claimed_hours": claimed_hours,
+                "proof_url": proof_url,
+                "note": request.form.get("note", "").strip(),
+                "status": "Pending verification",
+                "admin_note": "",
+                "awarded_points": 0,
+                "created_at": now,
+                "reviewed_at": "",
+                "reviewed_by": "",
+            },
+        )
+        session["account"] = public_user(saved)
+        break
+    save_users(users)
+    session["client_notice"] = "Console verification ticket submitted. Review usually takes 1-3 business days."
+    return redirect(url_for("client_portal", tab="Console Verification"))
 
 
 @app.get("/steam/link")
@@ -1958,6 +2176,11 @@ def donate_points():
             f"Donation submitted successfully. ${value:,.2f} allocated to {charity_name} "
             f"from {points} points."
         )
+        session["donation_success"] = {
+            "charity_name": charity_name,
+            "estimated_value": f"{value:,.2f}",
+            "points": points,
+        }
         break
     save_users(users)
     return redirect(url_for("client_portal", tab="Donate"))
@@ -1968,6 +2191,8 @@ def api_workshop():
     user = current_user()
     if user.get("role") not in {"customer", "admin"}:
         return jsonify({"error": "Login required"}), 401
+    if load_studio_settings().get("hide_workshop_tools"):
+        return jsonify({"error": lock_message(), "mods": [], "page": 1, "next_page": None}), 423
 
     try:
         page = int(request.args.get("page", 1))
@@ -2021,6 +2246,7 @@ def studio_dashboard():
     account = current_user()
     records = sort_records(load_requests())
     users = load_users()
+    studio_settings = load_studio_settings()
     query = request.args.get("q", "").strip().lower()
     active_tab = request.args.get("tab", "Command")
     visible_tabs = studio_tabs_for_user(account)
@@ -2050,6 +2276,7 @@ def studio_dashboard():
         active_tab=active_tab,
         query=query,
         account=account,
+        notice=session.pop("studio_notice", ""),
         users=[public_user(user) for user in users],
         is_admin=account.get("role") == "admin",
         admin_permissions_unlocked=admin_permissions_unlocked(),
@@ -2057,6 +2284,10 @@ def studio_dashboard():
         economy=economy_metrics(records, users),
         role_counts=role_counts(users),
         charity_queue=charity_admin_queue(users),
+        console_verification_queue=console_verification_queue(users),
+        studio_settings=studio_settings,
+        studio_lock=studio_lock_active(),
+        lock_message=lock_message(studio_settings),
         total_tracked_hours=total_tracked_hours,
         staff_stats=staff_time_stats(records, account),
         pool_records=[
@@ -2069,6 +2300,9 @@ def studio_dashboard():
 
 @app.post("/studio/requests/<reference>/update")
 def studio_update_request(reference):
+    if current_user().get("role") != "admin" and studio_lock_blocks("projects"):
+        session["studio_notice"] = lock_message()
+        return redirect(url_for("studio_dashboard", tab="Projects"))
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
     if not record:
@@ -2092,6 +2326,9 @@ def studio_update_request(reference):
 @app.post("/studio/requests/<reference>/claim")
 def studio_claim_request(reference):
     account = current_user()
+    if account.get("role") != "admin" and studio_lock_blocks("freelance"):
+        session["studio_notice"] = lock_message()
+        return redirect(url_for("studio_dashboard", tab="Freelance Pool"))
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
     if not record:
@@ -2120,6 +2357,9 @@ def start_studio_timer():
     account = current_user()
     if account.get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next="/studio"))
+    if account.get("role") != "admin" and studio_lock_blocks("timers"):
+        session["studio_notice"] = lock_message()
+        return redirect(url_for("studio_dashboard", tab=request.form.get("return_tab", "Command")))
 
     users = load_users()
     for user in users:
@@ -2147,6 +2387,9 @@ def stop_studio_timer():
     account = current_user()
     if account.get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next="/studio"))
+    if account.get("role") != "admin" and studio_lock_blocks("timers"):
+        session["studio_notice"] = lock_message()
+        return redirect(url_for("studio_dashboard", tab=request.form.get("return_tab", "Command")))
 
     users = load_users()
     for user in users:
@@ -2166,6 +2409,8 @@ def stop_studio_timer():
 def toggle_request_task(reference, task_id):
     if current_user().get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next=f"/requests/{reference}"))
+    if current_user().get("role") != "admin" and studio_lock_blocks("projects"):
+        return redirect(url_for("request_detail", reference=reference))
 
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
@@ -2197,6 +2442,8 @@ def toggle_request_task(reference, task_id):
 
 @app.post("/requests/<reference>/addons")
 def add_request_addon(reference):
+    if current_user().get("role") != "admin" and studio_lock_blocks("addons"):
+        return redirect(url_for("request_detail", reference=reference))
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
     if not record:
@@ -2225,6 +2472,8 @@ def add_request_addon(reference):
 def start_project_timer(reference):
     if current_user().get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next=f"/requests/{reference}"))
+    if current_user().get("role") != "admin" and studio_lock_blocks("timers"):
+        return redirect(url_for("request_detail", reference=reference))
 
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
@@ -2257,6 +2506,8 @@ def start_project_timer(reference):
 def stop_project_timer(reference):
     if current_user().get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next=f"/requests/{reference}"))
+    if current_user().get("role") != "admin" and studio_lock_blocks("timers"):
+        return redirect(url_for("request_detail", reference=reference))
 
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
@@ -2295,6 +2546,98 @@ def admin_update_user_role(user_id):
                 user["account_points"] = millipoints(user.get("account_points", 0))
             break
     save_users(users)
+    return redirect(url_for("studio_dashboard", tab="Admin"))
+
+
+@app.post("/admin/console-verifications/<user_id>/<verification_id>")
+def admin_review_console_verification(user_id, verification_id):
+    if not admin_permissions_unlocked():
+        return redirect(url_for("admin_verify"))
+
+    status = request.form.get("status", "Pending verification")
+    if status not in {"Pending verification", "Approved", "Rejected", "Needs more proof"}:
+        status = "Pending verification"
+    try:
+        awarded_points = millipoints(request.form.get("awarded_points", 0))
+    except ValueError:
+        awarded_points = 0
+    admin_note = request.form.get("admin_note", "").strip()
+    now = datetime.now(timezone.utc).isoformat()
+
+    users = load_users()
+    for user in users:
+        if user["id"] != user_id:
+            continue
+        for item in user.get("console_verifications", []):
+            if item.get("id") != verification_id:
+                continue
+            item["status"] = status
+            item["admin_note"] = admin_note
+            item["reviewed_at"] = now
+            item["reviewed_by"] = current_user().get("username", "Admin")
+            if status == "Approved" and awarded_points > 0 and not item.get("points_awarded_at"):
+                item["awarded_points"] = awarded_points
+                item["points_awarded_at"] = now
+                user["account_points"] = millipoints(user.get("account_points", 0) + awarded_points)
+                user.setdefault("point_transactions", []).insert(
+                    0,
+                    {
+                        "id": f"credit_{verification_id}",
+                        "type": "credit",
+                        "source": item.get("platform", "console"),
+                        "label": "Console gameplay verification",
+                        "points": awarded_points,
+                        "hours": item.get("claimed_hours", 0),
+                        "reference": "",
+                        "note": admin_note or "Console playtime proof approved by admin.",
+                        "created_at": now,
+                        "balance_after": user["account_points"],
+                    },
+                )
+            break
+        break
+    save_users(users)
+    session["studio_notice"] = "Console verification review saved."
+    return redirect(url_for("studio_dashboard", tab="Admin"))
+
+
+@app.post("/admin/studio-lock")
+def admin_update_studio_lock():
+    if not admin_permissions_unlocked():
+        return redirect(url_for("admin_verify"))
+
+    settings = load_studio_settings()
+    checkbox_keys = [
+        "limited_mode",
+        "lock_all",
+        "pause_projects",
+        "disable_submissions",
+        "disable_timers",
+        "disable_freelance",
+        "disable_client_addons",
+        "disable_console_verification",
+        "hide_workshop_tools",
+        "bohemia_update_hold",
+        "owner_away",
+        "standby_only",
+    ]
+    for key in checkbox_keys:
+        settings[key] = request.form.get(key) == "on"
+    if request.form.get("lock_all_button") == "1":
+        settings["limited_mode"] = True
+        settings["lock_all"] = True
+        settings["pause_projects"] = True
+        settings["disable_submissions"] = True
+        settings["disable_timers"] = True
+        settings["disable_freelance"] = True
+        settings["disable_client_addons"] = True
+        settings["disable_console_verification"] = True
+    settings["reason"] = request.form.get("reason", "").strip()
+    settings["message"] = request.form.get("message", "").strip()
+    settings["updated_by"] = current_user().get("username", "Admin")
+    settings["updated_at"] = datetime.now(timezone.utc).isoformat()
+    save_studio_settings(settings)
+    session["studio_notice"] = "Studio lock settings updated."
     return redirect(url_for("studio_dashboard", tab="Admin"))
 
 
@@ -2489,13 +2832,16 @@ def discord_callback():
 def create_request():
     records = load_requests()
     user = current_user()
+    if user.get("role") != "admin" and studio_lock_blocks("submissions"):
+        records_for_client = sort_records(records_for_user(records, user))
+        return render_template("client.html", **client_portal_context(user, records_for_client, "New Build", lock_message())), 423
     if user.get("role") == "customer" and user.get("suspended"):
         return render_template("login.html", mode="login", error="This client account is suspended and cannot create submissions.", next_url=""), 403
-    if user.get("role") == "customer" and not user.get("steam_id"):
+    if user.get("role") == "customer" and not user.get("steam_id") and not has_verified_console_account(user):
         records_for_client = sort_records(records_for_user(records, user))
         return render_template(
             "client.html",
-            **client_portal_context(user, records_for_client, "Account", "Link your Steam account before creating a submission."),
+            **client_portal_context(user, records_for_client, "Account", "Link Steam or submit console verification before creating a submission."),
         ), 403
     complexity = calculate_complexity(request.form)
     available_points = millipoints(user.get("account_points", 0))
@@ -2504,7 +2850,7 @@ def create_request():
         records_for_client = sort_records(records_for_user(records, user))
         message = (
             f"This request needs {required_points} account points. "
-            f"You currently have {available_points}. Record supported Arma Reforger server time to earn more."
+            f"You currently have {available_points}. Sync Steam playtime or submit console verification to earn more."
         )
         return render_template("client.html", **client_portal_context(user, records_for_client, "New Build", message)), 402
     reference = make_reference(records)

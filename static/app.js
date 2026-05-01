@@ -27,9 +27,11 @@ const donationPointsInput = document.querySelector("#donationPoints");
 const donationValuePreview = document.querySelector("#donationValuePreview");
 const donationBalancePreview = document.querySelector("#donationBalancePreview");
 const publicCharityRows = Array.from(document.querySelectorAll("#publicCharityList .client-request-row"));
+const platformSelect = document.querySelector("#platformSelect");
+const consolePlatformFields = document.querySelector("#consolePlatformFields");
 const submitButton = form?.querySelector("button[type='submit']");
 const accountPointBalance = Number(form?.dataset.pointBalance || 0);
-const steamLinked = form?.dataset.steamLinked !== "false";
+const gameAccountLinked = form?.dataset.steamLinked !== "false";
 let currentComplexityScore = 0;
 const loadedWorkshopIds = new Set(
   Array.from(document.querySelectorAll(".dependency-check input[type='checkbox']")).map((input) =>
@@ -117,8 +119,8 @@ function calculateScore() {
         : `ETA: ${etaDays} days`;
   }
   if (pointBalanceNotice) {
-    if (!steamLinked) {
-      pointBalanceNotice.textContent = "Steam link required before submission";
+    if (!gameAccountLinked) {
+      pointBalanceNotice.textContent = "Steam link or console verification required";
       pointBalanceNotice.classList.add("danger-text");
       meter.value = Math.min(score, Number(meter.max));
       return;
@@ -405,10 +407,10 @@ form?.addEventListener("submit", (event) => {
       detail: "Choose at least one build system or workshop dependency before curation.",
     });
   }
-  if (!steamLinked) {
+  if (!gameAccountLinked) {
     blockers.push({
-      title: "Steam not connected",
-      detail: "Link Steam so Arma Reforger gameplay points can be verified.",
+      title: "Platform account not verified",
+      detail: "Link Steam or submit approved Xbox/PlayStation verification before project curation.",
     });
   }
   if (accountPointBalance <= 0 || accountPointBalance < currentComplexityScore) {
@@ -440,6 +442,7 @@ function openModal(id, trigger) {
 }
 
 function closeModal(modal) {
+  if (!modal) return;
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
 }
@@ -472,3 +475,32 @@ roleSelect?.addEventListener("change", syncAccessCodeField);
 syncAccessCodeField();
 syncDonationPreview();
 filterCharityList();
+
+function syncPlatformFields() {
+  if (!platformSelect || !consolePlatformFields) return;
+  consolePlatformFields.classList.toggle("muted-field", platformSelect.value === "steam");
+}
+
+platformSelect?.addEventListener("change", syncPlatformFields);
+syncPlatformFields();
+
+function launchConfetti(modal) {
+  const stage = modal?.querySelector(".confetti-stage");
+  if (!stage) return;
+  stage.innerHTML = "";
+  const colors = ["#f6c65b", "#47d5c3", "#f5f7f7", "#ff9f9f", "#8fb7ff"];
+  for (let index = 0; index < 52; index += 1) {
+    const piece = document.createElement("span");
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.setProperty("--confetti-color", colors[index % colors.length]);
+    piece.style.setProperty("--confetti-delay", `${Math.random() * 0.45}s`);
+    piece.style.setProperty("--confetti-drift", `${Math.random() * 120 - 60}px`);
+    piece.style.setProperty("--confetti-rotate", `${Math.random() * 720 - 360}deg`);
+    stage.appendChild(piece);
+  }
+}
+
+document.querySelectorAll("[data-auto-confetti='true']").forEach((modal) => {
+  launchConfetti(modal);
+  setTimeout(() => launchConfetti(modal), 850);
+});

@@ -18,7 +18,8 @@
         <img src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="Thunder Buddies Studios" />
       </a>
       <nav aria-label="Public navigation">
-        <a href="#systems">Systems</a>
+        <a href="#meaning">Meaning</a>
+        <a href="#systems">Studio</a>
       </nav>
       <div class="home-nav-actions">
         <a class="home-login-button" href="{{ url_for('login') }}">Login</a>
@@ -34,27 +35,48 @@
 
         <div class="home-hero-copy">
           <span class="label">Thunder Buddies Studios</span>
-          <h1>Arma Reforger mod production command center.</h1>
+          <h1>Make your Arma time mean something.</h1>
           <p>
-            Being on console for Arma Reforger can be rough. No more sitting in
-            Discord calls wondering if your mod is actually being developed. Submit
-            the build, get a reference, follow step-by-step progress, and let the
-            developer side track Enfusion Suite time, production notes, tracing, and
-            delivery status across the Thunder Buddies-led partner studio network.
+            Play Arma Reforger, verify your time, and turn those hours into points
+            that can support nonprofit donations or help curate mod requests through
+            the Thunder Buddies Studios ecosystem. The build studio is still here:
+            clients can submit projects, track references, and follow development
+            progress without living in Discord calls.
           </p>
           <div class="hero-actions">
             <a class="primary-link pulse-cta" href="{{ url_for('login', mode='register') }}">Create account</a>
             <a class="secondary-link" href="{{ url_for('login') }}">Login to dashboard</a>
-            <button class="secondary-link info-pop" type="button" data-modal="roleModal">View roles</button>
+            <button class="secondary-link info-pop" type="button" data-modal="roleModal">How it works</button>
           </div>
         </div>
       </section>
 
+      <section id="meaning" class="home-widgets meaning-widgets">
+        <article class="motion-card">
+          <span class="label">Playtime points</span>
+          <h2>Donate time, not pressure</h2>
+          <p>Verified gameplay creates account points. You can keep those points for build curation or allocate their converted value toward nonprofit donation processing.</p>
+          <a href="{{ url_for('login', mode='register') }}">Start earning points</a>
+        </article>
+        <article class="motion-card">
+          <span class="label">Console friendly</span>
+          <h2>Steam, Xbox, PlayStation</h2>
+          <p>Steam can link directly. Console players can submit account names, play hours, and screenshots for admin verification without needing extra tools.</p>
+          <a href="{{ url_for('login') }}">Open account</a>
+        </article>
+        <article class="motion-card">
+          <span class="label">Client builds</span>
+          <h2>Studio-backed requests</h2>
+          <p>When you want a mod built, the studio system still handles intake, complexity, references, progress tracking, developer notes, and review flow.</p>
+          <a href="{{ url_for('login', mode='register') }}">Request a build</a>
+        </article>
+      </section>
+
       <section id="systems" class="home-widgets">
         <article class="motion-card">
-          <span class="label">Customers</span>
-          <h2>Know what is happening</h2>
-          <p>Create a mod request, get a TBS-RF reference, and see where the build stands without chasing updates in Discord.</p>
+          <span class="label">Players</span>
+          <h2>Meaningful play</h2>
+          <p>Track verified Arma Reforger hours, manage points, view transactions, and decide whether they support charity allocations or project curation.</p>
           <a href="{{ url_for('login', mode='register') }}">Start client account</a>
         </article>
         <article class="motion-card">
@@ -66,7 +88,7 @@
         <article class="motion-card">
           <span class="label">Admins</span>
           <h2>Run the studio</h2>
-          <p>Oversee accounts, projects, risk load, active work, and delivery flow from one command screen.</p>
+          <p>Oversee accounts, points, donations, verification tickets, projects, risk load, active work, and delivery flow from one command screen.</p>
           <a href="{{ url_for('login') }}">Admin login</a>
         </article>
       </section>
@@ -74,6 +96,7 @@
       <footer class="home-fineprint">
         Complexity scoring is an intake estimate based on scope, description detail, integration risk, and timeline pressure.
         Final effort, scheduling, and delivery terms are confirmed during studio review.
+        <small>All donations are processed in accordance with applicable local, state, and federal regulations and are processed by Sutton Bank N.A., Salt Lake City, Utah.</small>
         <a class="tiny-legal-link" href="{{ url_for('legal') }}">TOS / EULA / Discord OAuth notice</a>
       </footer>
     </main>
@@ -82,8 +105,8 @@
       <section class="site-modal" role="dialog" aria-modal="true" aria-label="Role overview">
         <button class="modal-close" type="button" data-close-modal>Close</button>
         <span class="label">Role routing</span>
-        <h2>One login, three dashboards.</h2>
-        <p>Customer accounts go to the client portal. Developer accounts go to the production dashboard. Admin accounts open the full oversight dashboard with user and project control.</p>
+        <h2>Play, verify, choose.</h2>
+        <p>Customer accounts track gameplay points, charity allocations, console verification, and mod requests. Developers work inside the production dashboard. Admins oversee the economy, donations, permissions, and studio locks.</p>
       </section>
     </div>
 

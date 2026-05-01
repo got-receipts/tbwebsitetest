@@ -4,5 +4,8 @@ __pycache__/
 .venv/
 data/requests.json
 data/users.json
+data/studio_settings.json
 node_modules/
 npm-debug.log*
+.codex_piptmp/
+.codex_tmpdeps/

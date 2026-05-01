@@ -46,9 +46,15 @@
         <div class="client-reference-card">
           <span class="label">Point bank <span class="info-dot" title="Steam playtime adds points. Build submissions deduct points.">i</span></span>
           <strong>{{ user.account_points }}</strong>
-          <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam gameplay hours synced</span>
+          <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours synced plus approved console proof</span>
         </div>
       </section>
+
+      {% if studio_lock %}
+        <div class="studio-alert">
+          {{ lock_message }}
+        </div>
+      {% endif %}
 
       {% if error %}
         <div class="studio-alert">{{ error }}</div>
@@ -164,7 +170,7 @@
             <h2>Start an Arma Reforger build</h2>
             <p>Pick systems. Spend points. Track progress.</p>
           </div>
-          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}" data-point-balance="{{ user.account_points }}" data-steam-linked="{{ 'true' if user.steam_id else 'false' }}">
+          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}" data-point-balance="{{ user.account_points }}" data-steam-linked="{{ 'true' if user.steam_id or user.console_verifications|selectattr('status', 'equalto', 'Approved')|list else 'false' }}">
             <input type="hidden" name="destination" value="client" />
             <aside class="project-panel" aria-label="Project details">
               <label>
@@ -195,8 +201,8 @@
                 <span id="pointBalanceNotice">Bank: {{ user.account_points }} pts</span>
                 <meter id="complexityMeter" min="0" max="220" value="0"></meter>
               </div>
-              {% if not user.steam_id %}
-                <p class="pool-note">Steam account link required before creating a submission.</p>
+              {% if not user.steam_id and not user.console_verifications|selectattr('status', 'equalto', 'Approved')|list %}
+                <p class="pool-note">Link Steam or submit approved console verification before creating a submission.</p>
               {% endif %}
               <button class="submit-button" type="submit">Submit to studio</button>
             </aside>
@@ -231,39 +237,46 @@
                 </div>
               </article>
 
-              <article class="builder-option-shell">
-                <div class="studio-section-title">
-                  <h2>Workshop dependencies</h2>
-                  <span><span class="info-dot" title="Dependencies add compatibility and QA points.">i</span></span>
-                </div>
-                <div class="workshop-toolbar">
-                  <input id="workshopSearch" type="search" placeholder="Search loaded workshop mods or authors" />
-                  <button class="secondary-link" id="workshopSearchButton" type="button">Search</button>
-                  <button class="secondary-link" id="workshopLoadMore" type="button" data-next-page="{{ workshop_next_page }}">Load next page</button>
-                  <small id="workshopStatus">{{ workshop_dependencies|length }} workshop mods loaded</small>
-                </div>
-                <div class="dependency-grid" id="workshopDependencyGrid">
-                  {% for dependency in workshop_dependencies %}
-                    <label class="dependency-check">
-                      <input name="dep_{{ dependency.id }}" type="checkbox" data-points="{{ dependency.points }}" />
-                      <input name="dep_{{ dependency.id }}_label" type="hidden" value="{{ dependency.label }}" />
-                      <input name="dep_{{ dependency.id }}_author" type="hidden" value="{{ dependency.author }}" />
-                      <input name="dep_{{ dependency.id }}_points" type="hidden" value="{{ dependency.points }}" />
-                      <input name="dep_{{ dependency.id }}_workshop_id" type="hidden" value="{{ dependency.workshop_id or '' }}" />
-                      <input name="dep_{{ dependency.id }}_source_url" type="hidden" value="{{ dependency.source_url or '' }}" />
-                      <span>
-                        <strong>{{ dependency.label }}</strong>
-                        <em>by {{ dependency.author }} | {{ dependency.points }} pts{% if dependency.rating %} | {{ dependency.rating }}%{% endif %}</em>
-                      </span>
-                      <textarea
-                        class="reason-field"
-                        name="dep_{{ dependency.id }}_reason"
-                        placeholder="Why is this dependency needed and how should it be used?"
-                      ></textarea>
-                    </label>
-                  {% endfor %}
-                </div>
-              </article>
+              {% if not studio_settings.hide_workshop_tools %}
+                <article class="builder-option-shell">
+                  <div class="studio-section-title">
+                    <h2>Workshop dependencies</h2>
+                    <span><span class="info-dot" title="Dependencies add compatibility and QA points.">i</span></span>
+                  </div>
+                  <div class="workshop-toolbar">
+                    <input id="workshopSearch" type="search" placeholder="Search loaded workshop mods or authors" />
+                    <button class="secondary-link" id="workshopSearchButton" type="button">Search</button>
+                    <button class="secondary-link" id="workshopLoadMore" type="button" data-next-page="{{ workshop_next_page }}">Load next page</button>
+                    <small id="workshopStatus">{{ workshop_dependencies|length }} workshop mods loaded</small>
+                  </div>
+                  <div class="dependency-grid" id="workshopDependencyGrid">
+                    {% for dependency in workshop_dependencies %}
+                      <label class="dependency-check">
+                        <input name="dep_{{ dependency.id }}" type="checkbox" data-points="{{ dependency.points }}" />
+                        <input name="dep_{{ dependency.id }}_label" type="hidden" value="{{ dependency.label }}" />
+                        <input name="dep_{{ dependency.id }}_author" type="hidden" value="{{ dependency.author }}" />
+                        <input name="dep_{{ dependency.id }}_points" type="hidden" value="{{ dependency.points }}" />
+                        <input name="dep_{{ dependency.id }}_workshop_id" type="hidden" value="{{ dependency.workshop_id or '' }}" />
+                        <input name="dep_{{ dependency.id }}_source_url" type="hidden" value="{{ dependency.source_url or '' }}" />
+                        <span>
+                          <strong>{{ dependency.label }}</strong>
+                          <em>by {{ dependency.author }} | {{ dependency.points }} pts{% if dependency.rating %} | {{ dependency.rating }}%{% endif %}</em>
+                        </span>
+                        <textarea
+                          class="reason-field"
+                          name="dep_{{ dependency.id }}_reason"
+                          placeholder="Why is this dependency needed and how should it be used?"
+                        ></textarea>
+                      </label>
+                    {% endfor %}
+                  </div>
+                </article>
+              {% else %}
+                <article class="builder-option-shell">
+                  <h2>Workshop dependencies paused</h2>
+                  <p class="pool-note">{{ lock_message }}</p>
+                </article>
+              {% endif %}
 
               <article class="question-card" data-base="0" data-risk="0">
                 <div class="question-head">
@@ -408,8 +421,38 @@
             <p>{{ "Prototype login" if user.prototype else "OAuth linked" }}</p>
           </article>
           <article>
+            <span class="label">Platform <span class="info-dot" title="Choose where you play Arma Reforger. Steam can link directly. Console accounts use verification tickets.">i</span></span>
+            <h2>{{ (user.preferred_platform or "steam")|title }}</h2>
+            <form method="post" action="{{ url_for('update_client_platform') }}">
+              <label>
+                Platform
+                <select id="platformSelect" name="preferred_platform">
+                  {% for platform in console_platforms %}
+                    <option value="{{ platform }}" {{ "selected" if (user.preferred_platform or "steam") == platform else "" }}>{{ platform|title }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <div id="consolePlatformFields" class="console-platform-fields">
+                <label>
+                  Account name / gamertag / PSN ID
+                  <input name="account_name" value="{{ (user.console_accounts.get(user.preferred_platform or 'steam', {}) or {}).get('account_name', '') }}" placeholder="Console account name" />
+                </label>
+                <label>
+                  Tag or discriminator
+                  <input name="account_tag" value="{{ (user.console_accounts.get(user.preferred_platform or 'steam', {}) or {}).get('account_tag', '') }}" placeholder="#1234 or platform tag" />
+                </label>
+                <label>
+                  Public profile link
+                  <input name="profile_url" value="{{ (user.console_accounts.get(user.preferred_platform or 'steam', {}) or {}).get('profile_url', '') }}" placeholder="Optional profile URL" />
+                </label>
+              </div>
+              <button class="submit-button" type="submit">Save platform</button>
+            </form>
+            <p class="mini-score">Steam uses direct linking. Xbox and PlayStation use console verification.</p>
+          </article>
+          <article>
             <span class="label">Steam <span class="info-dot" title="Required to read Arma Reforger playtime.">i</span></span>
-            <h2>{{ user.steam_name or "Steam link required" }}</h2>
+            <h2>{{ user.steam_name or "Steam not linked" }}</h2>
             {% if user.steam_id %}
               <p>SteamID64: {{ user.steam_id }}</p>
               <p>Arma Reforger: {{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
@@ -421,9 +464,15 @@
             {% endif %}
           </article>
           <article>
+            <span class="label">Console proof <span class="info-dot" title="For Xbox or PlayStation accounts, submit hours and screenshots for admin verification.">i</span></span>
+            <h2>{{ user.console_verifications|selectattr('status', 'equalto', 'Pending verification')|list|length }} pending</h2>
+            <button class="widget-button compact" type="button" data-modal="consoleVerificationModal">Submit console proof</button>
+            <a class="quiet-link" href="{{ url_for('client_portal', tab='Console Verification') }}">View verification tab</a>
+          </article>
+          <article>
             <span class="label">Point bank <span class="info-dot" title="Credits come from synced Steam hours. Debits happen when you submit a build request.">i</span></span>
             <h2>{{ user.account_points }} points</h2>
-            <p>{{ gameplay_point_rate }} pts / Steam hour</p>
+            <p>{{ gameplay_point_rate }} pts / verified gameplay hour</p>
           </article>
           <article>
             <span class="label">Steam credits <span class="info-dot" title="Only newly synced Steam minutes create new points.">i</span></span>
@@ -448,6 +497,37 @@
         </section>
       {% endif %}
 
+      {% if active_tab == "Console Verification" %}
+        <section class="settings-grid">
+          <article>
+            <span class="label">Console verification <span class="info-dot" title="Use this when Steam linking is not available for your Arma Reforger playtime.">i</span></span>
+            <h2>Xbox / PlayStation proof</h2>
+            <p>Submit your platform name, hours played, account link, and screenshot proof for admin review.</p>
+            <button class="submit-button" type="button" data-modal="consoleVerificationModal">Open verification form</button>
+          </article>
+          <article>
+            <span class="label">Review time</span>
+            <h2>1-3 business days</h2>
+            <p>Console verification is manual. Admins review account name, hours, and screenshot clarity before awarding points.</p>
+          </article>
+          <article>
+            <span class="label">Verification status</span>
+            <h2>{{ user.console_verifications|length }} tickets</h2>
+            <div class="client-request-list">
+              {% for item in user.console_verifications[:8] %}
+                <a class="client-request-row" href="{{ item.proof_url }}" target="_blank" rel="noopener">
+                  <span>{{ item.platform|title }}</span>
+                  <strong>{{ item.status }} | {{ item.claimed_hours }} hrs</strong>
+                  <em>{{ item.account_name }}{% if item.admin_note %} | {{ item.admin_note }}{% endif %}</em>
+                </a>
+              {% else %}
+                <p class="empty-state">No console verification tickets yet.</p>
+              {% endfor %}
+            </div>
+          </article>
+        </section>
+      {% endif %}
+
       <div class="modal-backdrop" id="pointLedgerModal" aria-hidden="true">
         <section class="site-modal widget-modal point-ledger-modal" role="dialog" aria-modal="true" aria-label="Point transactions">
           <button class="modal-close" type="button" data-close-modal>Close</button>
@@ -466,6 +546,75 @@
           </div>
         </section>
       </div>
+
+      <div class="modal-backdrop" id="consoleVerificationModal" aria-hidden="true">
+        <section class="site-modal widget-modal console-verification-modal" role="dialog" aria-modal="true" aria-label="Console verification">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Console account proof</span>
+          <h2>Submit playtime verification</h2>
+          <p>Console verification can take approximately 1-3 business days. Upload a clear screenshot showing your account name and Arma Reforger hours.</p>
+          {% if studio_settings.disable_console_verification or studio_settings.lock_all %}
+            <div class="studio-alert">{{ lock_message }}</div>
+          {% else %}
+            <form method="post" action="{{ url_for('submit_console_verification') }}" enctype="multipart/form-data">
+              <label>
+                Platform
+                <select name="platform" required>
+                  <option value="xbox" {{ "selected" if user.preferred_platform == "xbox" else "" }}>Xbox</option>
+                  <option value="playstation" {{ "selected" if user.preferred_platform == "playstation" else "" }}>PlayStation</option>
+                </select>
+              </label>
+              <label>
+                Account name / gamertag / PSN ID
+                <input name="account_name" placeholder="Your console account name" required />
+              </label>
+              <label>
+                Tag
+                <input name="account_tag" placeholder="#1234, suffix, or optional tag" />
+              </label>
+              <label>
+                Account or playtime link
+                <input name="profile_url" placeholder="Public profile, clip, or reference link" />
+              </label>
+              <label>
+                Hours played
+                <input name="claimed_hours" type="number" min="0.001" step="0.001" placeholder="125.5" required />
+              </label>
+              <label>
+                Screenshot proof
+                <input name="proof_image" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" required />
+              </label>
+              <label>
+                Notes
+                <textarea name="note" placeholder="Anything the admin should know while reviewing this proof"></textarea>
+              </label>
+              <p class="mini-score">By submitting, you confirm the proof belongs to your account and may be reviewed by Thunder Buddies Studios admins.</p>
+              <button class="submit-button" type="submit">Submit for verification</button>
+            </form>
+          {% endif %}
+        </section>
+      </div>
+
+      {% if donation_success %}
+        <div
+          class="modal-backdrop donation-success-backdrop open"
+          id="donationSuccessModal"
+          aria-hidden="false"
+          data-auto-confetti="true"
+        >
+          <section class="site-modal widget-modal donation-success-modal" role="dialog" aria-modal="true" aria-label="Donation success">
+            <button class="modal-close" type="button" data-close-modal>Close</button>
+            <div class="confetti-stage" aria-hidden="true"></div>
+            <span class="label">Donation submitted</span>
+            <h2>Successfully donated to {{ donation_success.charity_name }}</h2>
+            <p>
+              ${{ donation_success.estimated_value }} was allocated from {{ donation_success.points }} points.
+              Thunder Buddies Studios will process the donation from the admin side.
+            </p>
+            <button class="submit-button" type="button" data-close-modal>Nice</button>
+          </section>
+        </div>
+      {% endif %}
     </main>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
