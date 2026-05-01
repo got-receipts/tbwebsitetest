@@ -41,12 +41,12 @@
         <div>
           <span class="label">Signed in as</span>
           <h1>{{ user.username }}</h1>
-          <p>Build requests, progress, and Steam gameplay points.</p>
+          <p>Build requests, progress, and verified gameplay points.</p>
         </div>
         <div class="client-reference-card">
-          <span class="label">Point bank <span class="info-dot" title="Steam playtime adds points. Build submissions deduct points.">i</span></span>
+          <span class="label">Point bank <span class="info-dot" title="Steam or Xbox playtime adds points. Build submissions deduct points.">i</span></span>
           <strong>{{ user.account_points }}</strong>
-          <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam gameplay hours synced</span>
+          <span>{{ linked_reforger_hours }} linked gameplay hours synced</span>
         </div>
       </section>
 
@@ -164,7 +164,7 @@
             <h2>Start an Arma Reforger build</h2>
             <p>Pick systems. Spend points. Track progress.</p>
           </div>
-          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}" data-point-balance="{{ user.account_points }}" data-steam-linked="{{ 'true' if user.steam_id else 'false' }}">
+          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}" data-point-balance="{{ user.account_points }}" data-game-linked="{{ 'true' if has_linked_game_account else 'false' }}">
             <input type="hidden" name="destination" value="client" />
             <aside class="project-panel" aria-label="Project details">
               <label>
@@ -195,10 +195,10 @@
                 <span id="pointBalanceNotice">Bank: {{ user.account_points }} pts</span>
                 <meter id="complexityMeter" min="0" max="220" value="0"></meter>
               </div>
-              {% if not user.steam_id %}
-                <p class="pool-note">Steam account link required before creating a submission.</p>
+              {% if not has_linked_game_account %}
+                <p class="pool-note">Link at least one Steam or Xbox account before creating a submission.</p>
               {% endif %}
-              <button class="submit-button" type="submit">Submit to studio</button>
+              <button class="submit-button" type="submit" {{ "disabled" if not has_linked_game_account else "" }}>Submit to studio</button>
             </aside>
             <div class="question-list">
               <article class="builder-option-shell">
@@ -210,11 +210,30 @@
                   {% for group in build_option_groups %}
                     <section class="builder-tab-panel">
                       <h3>{{ group.title }}</h3>
+                <button class="widget-button compact" type="button" data-modal="xboxProofModal">Submit Xbox play hours</button>
                       <div class="option-check-grid">
-                        {% for option in group.options %}
+                <p>Link your Xbox account with QAuth, then sync Arma Reforger hours or submit a screenshot for review.</p>
                           <label class="option-check">
                             <input name="buildopt_{{ option.id }}" type="checkbox" data-points="{{ option.points }}" />
                             <span>
+            {% if has_linked_xbox_account %}
+              <article>
+                <span class="label">Xbox play hours</span>
+                <h2>Manual proof submissions</h2>
+                <p>Upload proof only if auto pull is unavailable. The screenshot must clearly show your gamertag and the hours associated with Arma Reforger.</p>
+                <div class="client-request-list">
+                  {% for submission in user.xbox_playtime_submissions[:3] %}
+                    <a class="client-request-row" href="{{ submission.image_url }}" target="_blank" rel="noopener">
+                      <span>{{ submission.status }}</span>
+                      <strong>{{ submission.hours_claimed }} hrs | {{ submission.gamertag }}</strong>
+                      <em>{{ submission.note or submission.created_at }}</em>
+                    </a>
+                  {% else %}
+                    <p class="empty-state">No Xbox play hour submissions yet.</p>
+                  {% endfor %}
+                </div>
+              </article>
+            {% endif %}
                               <strong>{{ option.label }}</strong>
                               <em>{{ option.points }} pts</em>
                             </span>
@@ -408,8 +427,8 @@
             <p>{{ "Prototype login" if user.prototype else "OAuth linked" }}</p>
           </article>
           <article>
-            <span class="label">Steam <span class="info-dot" title="Required to read Arma Reforger playtime.">i</span></span>
-            <h2>{{ user.steam_name or "Steam link required" }}</h2>
+            <span class="label">Steam <span class="info-dot" title="Optional linked platform used to read Arma Reforger playtime.">i</span></span>
+            <h2>{{ user.steam_name or "Steam not linked" }}</h2>
             {% if user.steam_id %}
               <p>SteamID64: {{ user.steam_id }}</p>
               <p>Arma Reforger: {{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
@@ -421,13 +440,38 @@
             {% endif %}
           </article>
           <article>
-            <span class="label">Point bank <span class="info-dot" title="Credits come from synced Steam hours. Debits happen when you submit a build request.">i</span></span>
-            <h2>{{ user.account_points }} points</h2>
-            <p>{{ gameplay_point_rate }} pts / Steam hour</p>
+            <span class="label">Xbox <span class="info-dot" title="Link a gamertag or XUID and sync through the configured Xbox playtime source.">i</span></span>
+            <h2>{{ user.xbox_gamertag or "Xbox not linked" }}</h2>
+            {% if user.xbox_gamertag or user.xbox_xuid %}
+              {% if user.xbox_xuid %}
+                <p>XUID: {{ user.xbox_xuid }}</p>
+              {% endif %}
+              <p>Arma Reforger: {{ ((user.xbox_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
+              <form method="post" action="{{ url_for('xbox_sync') }}">
+                <button class="submit-button" type="submit">Sync Xbox playtime</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('xbox_link') }}">
+                <label>
+                  Xbox gamertag
+                  <input name="xbox_gamertag" placeholder="ExampleGamer123" />
+                </label>
+                <label>
+                  Xbox XUID
+                  <input name="xbox_xuid" placeholder="Optional numeric XUID" />
+                </label>
+                <button class="submit-button" type="submit">Link Xbox account</button>
+              </form>
+            {% endif %}
           </article>
           <article>
-            <span class="label">Steam credits <span class="info-dot" title="Only newly synced Steam minutes create new points.">i</span></span>
-            <h2>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours</h2>
+            <span class="label">Point bank <span class="info-dot" title="Credits come from synced Steam or Xbox hours. Debits happen when you submit a build request.">i</span></span>
+            <h2>{{ user.account_points }} points</h2>
+            <p>{{ gameplay_point_rate }} pts / verified Arma Reforger hour</p>
+          </article>
+          <article>
+            <span class="label">Gameplay credits <span class="info-dot" title="Only newly synced Steam or Xbox minutes create new points.">i</span></span>
+            <h2>{{ linked_reforger_hours }} linked hours</h2>
             <div class="client-request-list">
               {% for session_item in user.supported_server_sessions[-5:]|reverse %}
                 <div class="client-request-row">
@@ -436,7 +480,7 @@
                   <em>{{ session_item.status }} | {{ session_item.note or session_item.source }}</em>
                 </div>
               {% else %}
-                <p class="empty-state">No Steam gameplay points synced yet.</p>
+                <p class="empty-state">No gameplay points synced yet.</p>
               {% endfor %}
             </div>
           </article>
@@ -466,6 +510,38 @@
           </div>
         </section>
       </div>
+
+      {% if has_linked_xbox_account %}
+        <div class="modal-backdrop" id="xboxProofModal" aria-hidden="true">
+          <section class="site-modal widget-modal xbox-proof-modal" role="dialog" aria-modal="true" aria-label="Submit Xbox play hours">
+            <button class="modal-close" type="button" data-close-modal>Close</button>
+            <span class="label">Xbox play hours</span>
+            <h2>Submit Xbox play hours</h2>
+            <p>Upload a screenshot only when auto pull is unavailable. It must clearly show your gamertag and the Arma Reforger hours associated with that account.</p>
+            <form method="post" action="{{ url_for('xbox_playtime_proof') }}" enctype="multipart/form-data">
+              <label>
+                Hours shown in screenshot
+                <input name="hours_claimed" type="number" step="0.01" min="0.01" placeholder="12.5" required />
+              </label>
+              <label class="upload-dropzone" id="xboxProofDropzone">
+                <input id="xboxProofInput" name="proof_image" type="file" accept="image/png,image/jpeg,image/webp" required />
+                <span class="upload-dropzone-label">Drag and drop screenshot here or click to browse</span>
+                <small id="xboxProofFilename">Accepted: PNG, JPG, JPEG, WEBP</small>
+                <img id="xboxProofPreview" class="upload-preview" alt="Xbox proof preview" hidden />
+              </label>
+              <label>
+                Review note
+                <input name="note" placeholder="Optional note for the review team" />
+              </label>
+              <label class="checkbox-line">
+                <input name="confirm_visibility" type="checkbox" required />
+                <span>The screenshot clearly shows my gamertag and the hours associated with Arma Reforger.</span>
+              </label>
+              <button class="submit-button" type="submit">Submit Xbox proof</button>
+            </form>
+          </section>
+        </div>
+      {% endif %}
     </main>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>

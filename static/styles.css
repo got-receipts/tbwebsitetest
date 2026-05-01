@@ -151,6 +151,10 @@ nav a:hover {
   gap: 10px;
 }
 
+.xbox-button {
+  background: linear-gradient(135deg, #0f8f3f, #39c36a);
+}
+
 .discord-dot {
   background: white;
   border-radius: 999px;
@@ -993,6 +997,40 @@ meter {
   min-height: 190px;
 }
 
+.upload-dropzone {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px dashed rgba(246, 198, 91, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 20px;
+  text-align: center;
+}
+
+.upload-dropzone input[type="file"] {
+  display: none;
+}
+
+.upload-dropzone.dragover {
+  background: rgba(71, 213, 195, 0.09);
+  border-color: rgba(71, 213, 195, 0.55);
+}
+
+.upload-dropzone-label {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.upload-preview {
+  border-radius: 8px;
+  max-height: 220px;
+  object-fit: contain;
+  width: 100%;
+}
+
 .eta-badge,
 .pool-note {
   border: 1px solid rgba(246, 198, 91, 0.22);
@@ -1388,6 +1426,14 @@ meter {
 
 .widget-modal form {
   margin-top: 12px;
+}
+
+.widget-modal .checkbox-line {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 20px 1fr;
+  text-align: left;
 }
 
 .studio-search {
