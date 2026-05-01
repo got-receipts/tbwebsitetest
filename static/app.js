@@ -12,6 +12,7 @@ const modalButtons = Array.from(document.querySelectorAll("[data-modal]"));
 const closeButtons = Array.from(document.querySelectorAll("[data-close-modal]"));
 const roleSelect = document.querySelector("#roleSelect");
 const accessCodeField = document.querySelector("#accessCodeField");
+const infoDots = Array.from(document.querySelectorAll(".info-dot"));
 const workshopGrid = document.querySelector("#workshopDependencyGrid");
 const workshopLoadMore = document.querySelector("#workshopLoadMore");
 const workshopSearch = document.querySelector("#workshopSearch");
@@ -40,6 +41,15 @@ const loadedWorkshopIds = new Set(
     input.name.replace(/^dep_/, "")
   )
 );
+
+infoDots.forEach((dot) => {
+  const tooltip = dot.getAttribute("title") || dot.dataset.tooltip || "";
+  if (!tooltip) return;
+  dot.dataset.tooltip = tooltip;
+  dot.setAttribute("aria-label", tooltip);
+  dot.setAttribute("tabindex", "0");
+  dot.removeAttribute("title");
+});
 
 function tierFor(score) {
   if (score >= 170) return "Campaign grade";
