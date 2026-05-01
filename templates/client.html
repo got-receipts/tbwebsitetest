@@ -57,9 +57,9 @@
           <p>Build requests, progress, and Steam gameplay points.</p>
         </div>
         <div class="client-reference-card">
-          <span class="label">Point bank <span class="info-dot" title="Steam playtime adds points. Build submissions deduct points.">i</span></span>
+          <span class="label">{{ point_bank_label }} <span class="info-dot" title="Verified platform time adds points. Build submissions and donations deduct points.">i</span></span>
           <strong>{{ user.account_points }}</strong>
-          <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours synced plus approved console proof</span>
+          <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Reforger hrs / {{ ((user.steam_tools_playtime_minutes or 0) / 60)|round(2) }} Tools hrs plus approved console proof</span>
         </div>
       </section>
 
@@ -324,6 +324,7 @@
           </footer>
         </section>
       {% endif %}
+      {% endif %}
 
       <div class="modal-backdrop" id="curationBlockModal" aria-hidden="true">
         <section class="site-modal curation-block-modal" role="dialog" aria-modal="true" aria-label="Project curation blocked">
@@ -509,13 +510,18 @@
             <a class="quiet-link" href="{{ url_for('client_portal', tab='Console Verification') }}">View verification tab</a>
           </article>
           <article>
-            <span class="label">Point bank <span class="info-dot" title="Credits come from synced Steam hours. Debits happen when you submit a build request.">i</span></span>
+            <span class="label">{{ point_bank_label }} <span class="info-dot" title="Credits come from verified platform hours. Debits happen when you submit a build request or allocate donations.">i</span></span>
             <h2>{{ user.account_points }} points</h2>
             <p>{{ gameplay_point_rate }} pts / verified gameplay hour</p>
           </article>
           <article>
-            <span class="label">Steam credits <span class="info-dot" title="Only newly synced Steam minutes create new points.">i</span></span>
-            <h2>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours</h2>
+            <span class="label">Steam tools <span class="info-dot" title="Arma Reforger Tools time from Steam is counted into the same point bank.">i</span></span>
+            <h2>{{ ((user.steam_tools_playtime_minutes or 0) / 60)|round(2) }} Tools hours</h2>
+            <p>App {{ steam_tools_app_id }} adds to the same point bank when Steam is linked.</p>
+          </article>
+          <article>
+            <span class="label">Arma Reforger playtime <span class="info-dot" title="Only newly synced verified minutes create new points.">i</span></span>
+            <h2>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Reforger hours</h2>
             <div class="client-request-list">
               {% for session_item in user.supported_server_sessions[-5:]|reverse %}
                 <div class="client-request-row">
@@ -534,7 +540,6 @@
             <button class="widget-button compact" type="button" data-modal="pointLedgerModal">Open transactions</button>
           </article>
         </section>
-        {% endif %}
       {% endif %}
 
       {% if active_tab == "Console Verification" %}
@@ -634,6 +639,42 @@
           {% endif %}
         </section>
       </div>
+
+      {% if show_platform_prompt %}
+        <div class="modal-backdrop open" id="platformPromptModal" aria-hidden="false">
+          <section class="site-modal widget-modal console-verification-modal" role="dialog" aria-modal="true" aria-label="Choose platform">
+            <button class="modal-close" type="button" data-close-modal>Close</button>
+            <span class="label">Point bank setup</span>
+            <h2>Choose your Arma platform</h2>
+            <p>Select the platform you want your point bank labeled under. You can add more platforms later from Account settings.</p>
+            <form method="post" action="{{ url_for('update_client_platform') }}">
+              <label>
+                Primary platform
+                <select name="preferred_platform" id="platformPromptSelect">
+                  <option value="steam">Steam</option>
+                  <option value="xbox">Xbox</option>
+                  <option value="playstation">PlayStation</option>
+                </select>
+              </label>
+              <div class="console-platform-fields" id="platformPromptConsoleFields">
+                <label>
+                  Account name / gamertag / PSN ID
+                  <input name="account_name" placeholder="Console account name" />
+                </label>
+                <label>
+                  Tag
+                  <input name="account_tag" placeholder="#1234 or optional tag" />
+                </label>
+                <label>
+                  Public profile link
+                  <input name="profile_url" placeholder="Optional profile URL" />
+                </label>
+              </div>
+              <button class="submit-button" type="submit">Save point bank</button>
+            </form>
+          </section>
+        </div>
+      {% endif %}
 
       {% if donation_success %}
         <div

@@ -29,6 +29,8 @@ const donationBalancePreview = document.querySelector("#donationBalancePreview")
 const publicCharityRows = Array.from(document.querySelectorAll("#publicCharityList .client-request-row"));
 const platformSelect = document.querySelector("#platformSelect");
 const consolePlatformFields = document.querySelector("#consolePlatformFields");
+const platformPromptSelect = document.querySelector("#platformPromptSelect");
+const platformPromptConsoleFields = document.querySelector("#platformPromptConsoleFields");
 const submitButton = form?.querySelector("button[type='submit']");
 const accountPointBalance = Number(form?.dataset.pointBalance || 0);
 const gameAccountLinked = form?.dataset.steamLinked !== "false";
@@ -481,13 +483,15 @@ syncAccessCodeField();
 syncDonationPreview();
 filterCharityList();
 
-function syncPlatformFields() {
-  if (!platformSelect || !consolePlatformFields) return;
-  consolePlatformFields.classList.toggle("muted-field", platformSelect.value === "steam");
+function syncPlatformFields(select = platformSelect, fields = consolePlatformFields) {
+  if (!select || !fields) return;
+  fields.classList.toggle("muted-field", select.value === "steam");
 }
 
-platformSelect?.addEventListener("change", syncPlatformFields);
+platformSelect?.addEventListener("change", () => syncPlatformFields(platformSelect, consolePlatformFields));
+platformPromptSelect?.addEventListener("change", () => syncPlatformFields(platformPromptSelect, platformPromptConsoleFields));
 syncPlatformFields();
+syncPlatformFields(platformPromptSelect, platformPromptConsoleFields);
 
 function launchConfetti(modal) {
   const stage = modal?.querySelector(".confetti-stage");

@@ -84,6 +84,21 @@
           </div>
           <div class="staff-stat-grid">
             <article>
+              <span class="label">Arma Reforger Tools</span>
+              <strong>{{ ((account.steam_tools_playtime_minutes or 0) / 60)|round(2) }}</strong>
+              <p>Steam tool hours counted into the same point bank.</p>
+            </article>
+            <article>
+              <span class="label">Arma Reforger</span>
+              <strong>{{ ((account.steam_playtime_minutes or 0) / 60)|round(2) }}</strong>
+              <p>Steam gameplay hours counted into the same point bank.</p>
+            </article>
+            <article>
+              <span class="label">Point bank</span>
+              <strong>{{ account.account_points }}</strong>
+              <p>One balance from game time, tools time, console proof, and admin adjustments.</p>
+            </article>
+            <article>
               <span class="label">Studio clock</span>
               <strong>{{ staff_stats.studio_hours }}</strong>
               <p>Hours inside studio operations</p>

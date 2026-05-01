@@ -437,6 +437,7 @@ POINTS_PER_HOUR = 3.4
 DEV_HOURLY_RATE = 85
 GAMEPLAY_POINT_RATE = 7.5
 ARMA_REFORGER_STEAM_APP_ID = 1874880
+ARMA_REFORGER_TOOLS_STEAM_APP_ID = 1874910
 STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
 GOFUNDME_CHARITY_SEARCH_URL = "https://www.gofundme.com/s?q="
@@ -735,8 +736,11 @@ def seed_test_accounts():
                 "steam_avatar": "",
                 "steam_playtime_minutes": 0,
                 "steam_minutes_credited": 0,
+                "steam_tools_playtime_minutes": 0,
+                "steam_tools_minutes_credited": 0,
                 "steam_last_sync": "",
                 "preferred_platform": "steam",
+                "platform_prompted": True,
                 "console_accounts": {},
                 "console_verifications": [],
                 "studio_time_entries": [],
@@ -779,8 +783,11 @@ def normalize_user(user):
     user.setdefault("steam_avatar", "")
     user.setdefault("steam_playtime_minutes", 0)
     user.setdefault("steam_minutes_credited", 0)
+    user.setdefault("steam_tools_playtime_minutes", 0)
+    user.setdefault("steam_tools_minutes_credited", 0)
     user.setdefault("steam_last_sync", "")
     user.setdefault("preferred_platform", "steam")
+    user.setdefault("platform_prompted", False)
     user.setdefault("console_accounts", {})
     user.setdefault("console_verifications", [])
     user.setdefault("studio_time_entries", [])
@@ -950,6 +957,12 @@ def has_verified_console_account(user):
     return any(item.get("status") == "Approved" for item in user.get("console_verifications", []))
 
 
+def point_bank_label(user):
+    platform = (user.get("preferred_platform") or "steam").lower()
+    labels = {"steam": "Steam point bank", "xbox": "Xbox point bank", "playstation": "PlayStation point bank"}
+    return labels.get(platform, "Point bank")
+
+
 def safe_upload_filename(prefix, original_name):
     suffix = Path(original_name or "").suffix.lower()
     if suffix not in {".png", ".jpg", ".jpeg", ".webp", ".pdf"}:
@@ -998,8 +1011,11 @@ def create_user(username, email, password, role="customer"):
         "steam_avatar": "",
         "steam_playtime_minutes": 0,
         "steam_minutes_credited": 0,
+        "steam_tools_playtime_minutes": 0,
+        "steam_tools_minutes_credited": 0,
         "steam_last_sync": "",
         "preferred_platform": "steam",
+        "platform_prompted": False,
         "console_accounts": {},
         "console_verifications": [],
         "studio_time_entries": [],
@@ -1032,7 +1048,7 @@ def fetch_steam_profile(steam_id):
     return players[0] if players else {}
 
 
-def fetch_steam_reforger_minutes(steam_id):
+def fetch_steam_app_minutes(steam_id, app_id):
     api_key = os.environ.get("STEAM_WEB_API_KEY", "")
     if not api_key:
         raise RuntimeError("STEAM_WEB_API_KEY is not configured.")
@@ -1042,17 +1058,25 @@ def fetch_steam_reforger_minutes(steam_id):
             "steamid": steam_id,
             "format": "json",
             "include_played_free_games": 1,
-            "appids_filter[0]": ARMA_REFORGER_STEAM_APP_ID,
+            "appids_filter[0]": app_id,
         }
     )
     request = Request(f"{STEAM_OWNED_GAMES_URL}?{params}", headers=DISCORD_HEADERS)
     with urlopen(request, timeout=8) as response:
         payload = json.loads(response.read().decode("utf-8"))
     games = payload.get("response", {}).get("games", [])
-    reforger = next((game for game in games if game.get("appid") == ARMA_REFORGER_STEAM_APP_ID), None)
-    if not reforger:
+    app = next((game for game in games if game.get("appid") == app_id), None)
+    if not app:
         return 0
-    return int(reforger.get("playtime_forever", 0))
+    return int(app.get("playtime_forever", 0))
+
+
+def fetch_steam_reforger_minutes(steam_id):
+    return fetch_steam_app_minutes(steam_id, ARMA_REFORGER_STEAM_APP_ID)
+
+
+def fetch_steam_tools_minutes(steam_id):
+    return fetch_steam_app_minutes(steam_id, ARMA_REFORGER_TOOLS_STEAM_APP_ID)
 
 
 def sync_steam_gameplay_points(user_id):
@@ -1065,11 +1089,16 @@ def sync_steam_gameplay_points(user_id):
         if not saved.get("steam_id"):
             raise RuntimeError("Link Steam before syncing Arma Reforger gameplay time.")
         playtime_minutes = fetch_steam_reforger_minutes(saved["steam_id"])
+        tools_minutes = fetch_steam_tools_minutes(saved["steam_id"])
         credited_minutes = int(saved.get("steam_minutes_credited", 0) or 0)
+        tools_credited_minutes = int(saved.get("steam_tools_minutes_credited", 0) or 0)
         new_minutes = max(0, playtime_minutes - credited_minutes)
-        awarded = millipoints((new_minutes / 60) * GAMEPLAY_POINT_RATE)
+        new_tools_minutes = max(0, tools_minutes - tools_credited_minutes)
+        awarded = millipoints(((new_minutes + new_tools_minutes) / 60) * GAMEPLAY_POINT_RATE)
         saved["steam_playtime_minutes"] = playtime_minutes
+        saved["steam_tools_playtime_minutes"] = tools_minutes
         saved["steam_minutes_credited"] = max(credited_minutes, playtime_minutes)
+        saved["steam_tools_minutes_credited"] = max(tools_credited_minutes, tools_minutes)
         saved["steam_last_sync"] = datetime.now(timezone.utc).isoformat()
         if awarded > 0:
             saved["account_points"] = millipoints(saved.get("account_points", 0) + awarded)
@@ -1077,10 +1106,10 @@ def sync_steam_gameplay_points(user_id):
             saved.setdefault("supported_server_sessions", []).append(
                 {
                     "id": credit_id,
-                    "server_name": "Steam Arma Reforger gameplay",
-                    "hours": millipoints(new_minutes / 60),
+                    "server_name": "Steam Arma Reforger + Tools",
+                    "hours": millipoints((new_minutes + new_tools_minutes) / 60),
                     "points": awarded,
-                    "note": "Steam verified total Arma Reforger playtime delta",
+                    "note": "Steam verified Arma Reforger and Arma Reforger Tools playtime delta",
                     "source": "steam",
                     "recorded_at": saved["steam_last_sync"],
                     "status": "Verified",
@@ -1092,11 +1121,11 @@ def sync_steam_gameplay_points(user_id):
                     "id": f"credit_{credit_id}",
                     "type": "credit",
                     "source": "steam",
-                    "label": "Arma Reforger gameplay",
+                    "label": "Arma Reforger gameplay and tools",
                     "points": awarded,
-                    "hours": millipoints(new_minutes / 60),
+                    "hours": millipoints((new_minutes + new_tools_minutes) / 60),
                     "reference": "",
-                    "note": "Steam playtime synced into account points.",
+                    "note": "Steam playtime and tools time synced into one point bank.",
                     "created_at": saved["steam_last_sync"],
                     "balance_after": saved["account_points"],
                 },
@@ -1562,6 +1591,9 @@ def client_portal_context(user, records, active_tab, error=""):
         "point_cash_rate": point_cash_value(1),
         "featured_charity_causes": sorted({item["cause"] for item in FEATURED_CHARITIES}),
         "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
+        "steam_tools_app_id": ARMA_REFORGER_TOOLS_STEAM_APP_ID,
+        "point_bank_label": point_bank_label(user),
+        "show_platform_prompt": user.get("role") in {"customer", "admin"} and not user.get("platform_prompted", False),
         "featured_charities": FEATURED_CHARITIES,
         "gofundme_search_url": GOFUNDME_CHARITY_SEARCH_URL,
         "console_platforms": CONSOLE_PLATFORMS,
@@ -1885,7 +1917,7 @@ def login_post():
 
     login_user(user)
     next_url = request.form.get("next") or ""
-    if next_url.startswith("/studio") and current_user().get("role") in {"developer", "admin"}:
+    if next_url.startswith("/studio") and current_user().get("role") in STAFF_ROLES:
         return redirect(next_url)
     return redirect(url_for("dashboard"))
 
@@ -1914,6 +1946,7 @@ def register_post():
         for saved in users:
             if saved["id"] == user["id"]:
                 saved["preferred_platform"] = preferred_platform
+                saved["platform_prompted"] = True
                 user = saved
                 break
         save_users(users)
@@ -1983,6 +2016,7 @@ def update_client_platform():
     for saved in users:
         if saved["id"] == user["id"]:
             saved["preferred_platform"] = platform
+            saved["platform_prompted"] = True
             if platform in {"xbox", "playstation"}:
                 accounts = saved.setdefault("console_accounts", {})
                 accounts[platform] = {
