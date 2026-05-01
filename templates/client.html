@@ -210,30 +210,11 @@
                   {% for group in build_option_groups %}
                     <section class="builder-tab-panel">
                       <h3>{{ group.title }}</h3>
-                <button class="widget-button compact" type="button" data-modal="xboxProofModal">Submit Xbox play hours</button>
                       <div class="option-check-grid">
-                <p>Link your Xbox account with QAuth, then sync Arma Reforger hours or submit a screenshot for review.</p>
+                        {% for option in group.options %}
                           <label class="option-check">
                             <input name="buildopt_{{ option.id }}" type="checkbox" data-points="{{ option.points }}" />
                             <span>
-            {% if has_linked_xbox_account %}
-              <article>
-                <span class="label">Xbox play hours</span>
-                <h2>Manual proof submissions</h2>
-                <p>Upload proof only if auto pull is unavailable. The screenshot must clearly show your gamertag and the hours associated with Arma Reforger.</p>
-                <div class="client-request-list">
-                  {% for submission in user.xbox_playtime_submissions[:3] %}
-                    <a class="client-request-row" href="{{ submission.image_url }}" target="_blank" rel="noopener">
-                      <span>{{ submission.status }}</span>
-                      <strong>{{ submission.hours_claimed }} hrs | {{ submission.gamertag }}</strong>
-                      <em>{{ submission.note or submission.created_at }}</em>
-                    </a>
-                  {% else %}
-                    <p class="empty-state">No Xbox play hour submissions yet.</p>
-                  {% endfor %}
-                </div>
-              </article>
-            {% endif %}
                               <strong>{{ option.label }}</strong>
                               <em>{{ option.points }} pts</em>
                             </span>
