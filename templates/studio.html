@@ -461,8 +461,12 @@
                       Studio visibility for queue moderation and project review.
                     {% elif role == "developer" %}
                       Developer dashboard and freelance pool access.
-                    {% else %}
+                    {% elif role == "staff" %}
+                      General studio support, client review, and staff clock access.
+                    {% elif role == "admin" %}
                       Full admin oversight and permission control.
+                    {% else %}
+                      Role-specific studio access.
                     {% endif %}
                   </p>
                 </article>

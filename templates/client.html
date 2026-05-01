@@ -37,10 +37,10 @@
         <div>
           <span class="label">Signed in as</span>
           <h1>{{ user.username }}</h1>
-          <p>Track builds, review progress, earn account points through supported Arma Reforger server time, and spend those points on submissions.</p>
+          <p>Build requests, progress, and Steam gameplay points.</p>
         </div>
         <div class="client-reference-card">
-          <span class="label">Account points</span>
+          <span class="label">Point bank <span class="info-dot" title="Steam playtime adds points. Build submissions deduct points.">i</span></span>
           <strong>{{ user.account_points }}</strong>
           <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam gameplay hours synced</span>
         </div>
@@ -56,23 +56,23 @@
       {% if active_tab == "Overview" %}
         <section class="client-metrics">
           <article>
-            <span class="label">Total requests</span>
+            <span class="label">Requests <span class="info-dot" title="Total requests created from this account.">i</span></span>
             <strong>{{ metrics.total }}</strong>
           </article>
           <article>
-            <span class="label">Active builds</span>
+            <span class="label">Active <span class="info-dot" title="Requests not finished yet.">i</span></span>
             <strong>{{ metrics.active }}</strong>
           </article>
           <article>
-            <span class="label">Ready for review</span>
+            <span class="label">Review <span class="info-dot" title="Builds waiting for client review.">i</span></span>
             <strong>{{ metrics.review }}</strong>
           </article>
           <article>
-            <span class="label">Completed</span>
+            <span class="label">Done <span class="info-dot" title="Packaged or completed requests.">i</span></span>
             <strong>{{ metrics.completed }}</strong>
           </article>
           <article>
-            <span class="label">Available points</span>
+            <span class="label">Points <span class="info-dot" title="Spendable balance for new submissions.">i</span></span>
             <strong>{{ user.account_points }}</strong>
           </article>
         </section>
@@ -158,7 +158,7 @@
           <div class="section-heading">
             <span class="label">New request</span>
             <h2>Start an Arma Reforger build</h2>
-            <p>Select the systems you need and describe the mod. Steam-linked Arma Reforger gameplay points are required before submission.</p>
+            <p>Pick systems. Spend points. Track progress.</p>
           </div>
           <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}" data-point-balance="{{ user.account_points }}" data-steam-linked="{{ 'true' if user.steam_id else 'false' }}">
             <input type="hidden" name="destination" value="client" />
@@ -188,7 +188,7 @@
                 <strong id="complexityScore">0 pts</strong>
                 <span id="complexityTier">Recon</span>
                 <span id="timelineEstimate">ETA: 1 day</span>
-                <span id="pointBalanceNotice">Balance: {{ user.account_points }} points</span>
+                <span id="pointBalanceNotice">Bank: {{ user.account_points }} pts</span>
                 <meter id="complexityMeter" min="0" max="220" value="0"></meter>
               </div>
               {% if not user.steam_id %}
@@ -200,7 +200,7 @@
               <article class="builder-option-shell">
                 <div class="studio-section-title">
                   <h2>Pick build systems</h2>
-                  <span>Official Workbench-informed categories</span>
+                  <span><span class="info-dot" title="Each selected system adds complexity points.">i</span></span>
                 </div>
                 <div class="builder-tabs">
                   {% for group in build_option_groups %}
@@ -230,7 +230,7 @@
               <article class="builder-option-shell">
                 <div class="studio-section-title">
                   <h2>Workshop dependencies</h2>
-                  <span>Live-paged from the public Reforger Workshop listing</span>
+                  <span><span class="info-dot" title="Dependencies add compatibility and QA points.">i</span></span>
                 </div>
                 <div class="workshop-toolbar">
                   <input id="workshopSearch" type="search" placeholder="Search loaded workshop mods or authors" />
@@ -292,14 +292,13 @@
       {% if active_tab == "Account" %}
         <section class="settings-grid">
           <article>
-            <span class="label">Discord identity</span>
+            <span class="label">Discord <span class="info-dot" title="Your web login identity.">i</span></span>
             <h2>{{ user.username }}</h2>
-            <p>{{ "Prototype login" if user.prototype else "Discord OAuth account" }}</p>
+            <p>{{ "Prototype login" if user.prototype else "OAuth linked" }}</p>
           </article>
           <article>
-            <span class="label">Steam account</span>
+            <span class="label">Steam <span class="info-dot" title="Required to read Arma Reforger playtime.">i</span></span>
             <h2>{{ user.steam_name or "Steam link required" }}</h2>
-            <p>Link Steam to verify total Arma Reforger gameplay time. Steam game details must be public for playtime sync.</p>
             {% if user.steam_id %}
               <p>SteamID64: {{ user.steam_id }}</p>
               <p>Arma Reforger: {{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
@@ -311,17 +310,12 @@
             {% endif %}
           </article>
           <article>
-            <span class="label">Client privacy</span>
-            <h2>Client-visible updates only</h2>
-            <p>The client portal shows progress and client notes. Internal studio notes stay on the dev dashboard.</p>
-          </article>
-          <article>
-            <span class="label">Gameplay points</span>
+            <span class="label">Point bank <span class="info-dot" title="Credits come from synced Steam hours. Debits happen when you submit a build request.">i</span></span>
             <h2>{{ user.account_points }} points</h2>
-            <p>{{ gameplay_point_rate }} points are earned per verified Steam hour in Arma Reforger. New synced minutes become spendable account points.</p>
+            <p>{{ gameplay_point_rate }} pts / Steam hour</p>
           </article>
           <article>
-            <span class="label">Recent point credits</span>
+            <span class="label">Steam credits <span class="info-dot" title="Only newly synced Steam minutes create new points.">i</span></span>
             <h2>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours</h2>
             <div class="client-request-list">
               {% for session_item in user.supported_server_sessions[-5:]|reverse %}
@@ -336,9 +330,19 @@
             </div>
           </article>
           <article>
-            <span class="label">Need help?</span>
-            <h2>Use your reference</h2>
-            <p>Send your `TBS-RF` number to the studio whenever you need an update.</p>
+            <span class="label">Transactions <span class="info-dot" title="Credit adds points. Debit spends points.">i</span></span>
+            <h2>Point ledger</h2>
+            <div class="transaction-list">
+              {% for transaction in user.point_transactions[:10] %}
+                <div class="transaction-row {{ transaction.type }}">
+                  <span>{{ "+" if transaction.type == "credit" else "-" }}{{ transaction.points }} pts</span>
+                  <strong>{{ transaction.label }}</strong>
+                  <em>{{ transaction.reference or transaction.source }}{% if transaction.hours %} | {{ transaction.hours }} hrs{% endif %}</em>
+                </div>
+              {% else %}
+                <p class="empty-state">No point transactions yet.</p>
+              {% endfor %}
+            </div>
           </article>
         </section>
       {% endif %}

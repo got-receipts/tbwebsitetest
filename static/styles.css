@@ -828,6 +828,23 @@ meter {
   color: var(--muted);
 }
 
+.info-dot {
+  align-items: center;
+  background: rgba(71, 213, 195, 0.16);
+  border: 1px solid rgba(71, 213, 195, 0.34);
+  border-radius: 999px;
+  color: var(--cyan);
+  cursor: help;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 900;
+  height: 17px;
+  justify-content: center;
+  margin-left: 5px;
+  text-transform: none;
+  width: 17px;
+}
+
 .client-metrics {
   display: grid;
   gap: 14px;
@@ -897,6 +914,39 @@ meter {
 .client-request-card p {
   color: var(--muted);
   line-height: 1.65;
+}
+
+.transaction-list {
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-row {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+}
+
+.transaction-row span {
+  color: var(--gold);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.transaction-row.credit span {
+  color: var(--cyan);
+}
+
+.transaction-row.debit span {
+  color: #ffbc8f;
+}
+
+.transaction-row em {
+  color: var(--muted);
+  font-style: normal;
 }
 
 .eta-badge,

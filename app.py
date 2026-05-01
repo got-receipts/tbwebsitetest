@@ -376,8 +376,8 @@ PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
 STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Settings", "Admin"]
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
-ROLES = ["customer", "developer", "moderator", "tester", "admin"]
-STAFF_ROLES = {"developer", "moderator", "tester", "admin"}
+ROLES = ["customer", "developer", "moderator", "tester", "staff", "admin"]
+STAFF_ROLES = {"developer", "moderator", "tester", "staff", "admin"}
 ROLE_DASHBOARDS = {
     "admin": {
         "title": "Admin Command",
@@ -403,6 +403,12 @@ ROLE_DASHBOARDS = {
         "summary": "Focus on phase progress, checklist completion, multiplayer QA, console checks, and ready-for-review builds.",
         "actions": ["QA checklist", "Phase map", "Console testing", "Release notes"],
     },
+    "staff": {
+        "title": "General Staff Hub",
+        "headline": "Studio support lane",
+        "summary": "Clock studio time, help with intake support, review assigned work, and keep internal operations moving.",
+        "actions": ["Studio clock", "Support queue", "Assignments", "Staff stats"],
+    },
 }
 POINT_DONATION_RATE = 1.25
 POINTS_PER_HOUR = 3.4
@@ -420,12 +426,49 @@ TEST_ACCOUNTS = [
         "email": "admin@thunderbuddies.test",
         "password": "ThunderAdmin123!",
         "role": "admin",
+        "studio_name": "Thunder Buddies Studios",
     },
     {
         "username": "client_test",
         "email": "client@thunderbuddies.test",
         "password": "ThunderClient123!",
         "role": "customer",
+        "studio_name": "",
+    },
+    {
+        "username": "tbs_dev_test",
+        "email": "tbs.dev@thunderbuddies.test",
+        "password": "ThunderDev123!",
+        "role": "developer",
+        "studio_name": "Thunder Buddies Studios",
+    },
+    {
+        "username": "partner_dev_test",
+        "email": "partner.dev@thunderbuddies.test",
+        "password": "PartnerDev123!",
+        "role": "developer",
+        "studio_name": "Partner Studio Alpha",
+    },
+    {
+        "username": "tester_test",
+        "email": "tester@thunderbuddies.test",
+        "password": "ThunderTester123!",
+        "role": "tester",
+        "studio_name": "Thunder Buddies Studios QA",
+    },
+    {
+        "username": "moderator_test",
+        "email": "moderator@thunderbuddies.test",
+        "password": "ThunderMod123!",
+        "role": "moderator",
+        "studio_name": "Thunder Buddies Studios",
+    },
+    {
+        "username": "staff_test",
+        "email": "staff@thunderbuddies.test",
+        "password": "ThunderStaff123!",
+        "role": "staff",
+        "studio_name": "Thunder Buddies Studios",
     },
 ]
 
@@ -548,11 +591,17 @@ def ensure_storage():
 
 def seed_test_accounts():
     users = json.loads(USERS_FILE.read_text(encoding="utf-8"))
-    existing = {user.get("email", "").lower() for user in users}
+    existing = {user.get("email", "").lower(): user for user in users}
     changed = False
 
     for account in TEST_ACCOUNTS:
-        if account["email"] in existing:
+        existing_user = existing.get(account["email"])
+        if existing_user:
+            existing_user["username"] = account["username"]
+            existing_user["role"] = account["role"]
+            existing_user["studio_name"] = account.get("studio_name", "")
+            existing_user.setdefault("prototype", True)
+            changed = True
             continue
         users.append(
             {
@@ -568,8 +617,10 @@ def seed_test_accounts():
                 "account_points": 500 if account["role"] == "admin" else 120,
                 "server_hours": 0,
                 "supported_server_sessions": [],
+                "point_transactions": [],
                 "suspended": False,
                 "suspension_reason": "",
+                "studio_name": account.get("studio_name", ""),
                 "steam_id": "",
                 "steam_name": "",
                 "steam_avatar": "",
@@ -604,6 +655,7 @@ def normalize_user(user):
     user.setdefault("server_hours", 0)
     user.setdefault("supported_server_sessions", [])
     user.setdefault("point_spend_log", [])
+    user.setdefault("point_transactions", [])
     user.setdefault("suspended", False)
     user.setdefault("suspension_reason", "")
     user.setdefault("studio_name", "Thunder Buddies Studios" if user.get("role") == "admin" else "")
@@ -616,6 +668,43 @@ def normalize_user(user):
     user.setdefault("steam_minutes_credited", 0)
     user.setdefault("steam_last_sync", "")
     user.setdefault("studio_time_entries", [])
+    existing_transaction_ids = {item.get("id") for item in user.get("point_transactions", [])}
+    for credit in user.get("supported_server_sessions", []):
+        transaction_id = f"credit_{credit.get('id', secrets.token_hex(5))}"
+        if transaction_id in existing_transaction_ids:
+            continue
+        user["point_transactions"].append(
+            {
+                "id": transaction_id,
+                "type": "credit",
+                "source": credit.get("source", "steam"),
+                "label": credit.get("server_name", "Steam Arma Reforger gameplay"),
+                "points": millipoints(credit.get("points", 0)),
+                "hours": credit.get("hours", 0),
+                "reference": "",
+                "note": credit.get("note", ""),
+                "created_at": credit.get("recorded_at", ""),
+            }
+        )
+    existing_transaction_ids = {item.get("id") for item in user.get("point_transactions", [])}
+    for spend in user.get("point_spend_log", []):
+        transaction_id = f"debit_{spend.get('id', secrets.token_hex(5))}"
+        if transaction_id in existing_transaction_ids:
+            continue
+        user["point_transactions"].append(
+            {
+                "id": transaction_id,
+                "type": "debit",
+                "source": "request",
+                "label": "Mod request submission",
+                "points": millipoints(spend.get("points", 0)),
+                "hours": 0,
+                "reference": spend.get("reference", ""),
+                "note": "Points spent from account balance.",
+                "created_at": spend.get("created_at", ""),
+            }
+        )
+    user["point_transactions"] = sorted(user["point_transactions"], key=lambda item: item.get("created_at", ""), reverse=True)
     return user
 
 
@@ -658,6 +747,7 @@ def create_user(username, email, password, role="customer"):
         "server_hours": 0,
         "supported_server_sessions": [],
         "point_spend_log": [],
+        "point_transactions": [],
         "suspended": False,
         "suspension_reason": "",
         "studio_name": "",
@@ -740,9 +830,10 @@ def sync_steam_gameplay_points(user_id):
         saved["steam_last_sync"] = datetime.now(timezone.utc).isoformat()
         if awarded > 0:
             saved["account_points"] = millipoints(saved.get("account_points", 0) + awarded)
+            credit_id = f"steam_{secrets.token_hex(5)}"
             saved.setdefault("supported_server_sessions", []).append(
                 {
-                    "id": f"steam_{secrets.token_hex(5)}",
+                    "id": credit_id,
                     "server_name": "Steam Arma Reforger gameplay",
                     "hours": millipoints(new_minutes / 60),
                     "points": awarded,
@@ -752,6 +843,21 @@ def sync_steam_gameplay_points(user_id):
                     "status": "Verified",
                 }
             )
+            saved.setdefault("point_transactions", []).insert(
+                0,
+                {
+                    "id": f"credit_{credit_id}",
+                    "type": "credit",
+                    "source": "steam",
+                    "label": "Arma Reforger gameplay",
+                    "points": awarded,
+                    "hours": millipoints(new_minutes / 60),
+                    "reference": "",
+                    "note": "Steam playtime synced into account points.",
+                    "created_at": saved["steam_last_sync"],
+                    "balance_after": saved["account_points"],
+                },
+            )
         updated_user = saved
         break
     if updated_user:
@@ -759,6 +865,15 @@ def sync_steam_gameplay_points(user_id):
         if session.get("account", {}).get("id") == updated_user["id"]:
             session["account"] = public_user(updated_user)
     return updated_user, awarded
+
+
+def steam_sync_is_stale(user, minutes=30):
+    if not user.get("steam_id"):
+        return False
+    last_sync = parse_iso(user.get("steam_last_sync"))
+    if not last_sync:
+        return True
+    return (datetime.now(timezone.utc) - last_sync).total_seconds() >= minutes * 60
 
 
 def normalize_record(record):
@@ -980,7 +1095,7 @@ def staff_time_stats(records, user):
     return {
         "role_dashboard": ROLE_DASHBOARDS.get(role, ROLE_DASHBOARDS["developer"]),
         "studio_name": studio_name,
-        "network_label": "Thunder Buddies Developer" if is_tbs else "Third-party Developer" if role == "developer" else f"{role.title()} Staff",
+        "network_label": "Thunder Buddies Developer" if is_tbs else "Third-party Developer" if role == "developer" else "General Staff" if role == "staff" else f"{role.title()} Staff",
         "is_thunder_buddies": is_tbs,
         "assigned_count": len(assigned_records),
         "assigned_records": assigned_records,
@@ -1386,6 +1501,8 @@ def studio_tabs_for_user(user):
         return ["Command", "Clients", "Pipeline", "Freelance Pool", "Settings"]
     if role == "tester":
         return ["Command", "Projects", "Pipeline", "Complexity", "Settings"]
+    if role == "staff":
+        return ["Command", "Clients", "Settings"]
     return ["Command", "Settings"]
 
 
@@ -1515,6 +1632,14 @@ def client_portal():
     active_tab = request.args.get("tab", "Overview")
     if active_tab not in CLIENT_TABS:
         active_tab = "Overview"
+    if active_tab in {"Overview", "Account", "New Build"} and steam_sync_is_stale(user):
+        try:
+            synced_user, awarded = sync_steam_gameplay_points(user["id"])
+            user = public_user(synced_user)
+            if awarded > 0:
+                session["client_notice"] = f"Steam added {awarded} points from new Arma Reforger playtime."
+        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError):
+            pass
 
     return render_template("client.html", **client_portal_context(user, records, active_tab))
 
@@ -2245,6 +2370,22 @@ def create_request():
                         "points": required_points,
                         "created_at": now.isoformat(),
                     }
+                )
+                spend_id = saved["point_spend_log"][-1]["id"]
+                saved.setdefault("point_transactions", []).insert(
+                    0,
+                    {
+                        "id": f"debit_{spend_id}",
+                        "type": "debit",
+                        "source": "request",
+                        "label": "Mod request submission",
+                        "points": required_points,
+                        "hours": 0,
+                        "reference": reference,
+                        "note": f"Points deducted for {record['project_name']}.",
+                        "created_at": now.isoformat(),
+                        "balance_after": saved["account_points"],
+                    },
                 )
                 session["account"] = public_user(saved)
                 break

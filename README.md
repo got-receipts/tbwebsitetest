@@ -33,14 +33,88 @@ The studio dashboard is at `http://localhost:5000/studio`. Developer and admin a
 The client portal is at `http://localhost:5000/client`. Clients use Discord login and only
 see client-safe progress notes, not internal studio notes.
 
-Seeded test accounts:
+## Seeded test accounts
+
+These prototype accounts are created automatically if they do not already exist:
 
 ```text
-Admin username: admin_test
-Admin password: ThunderAdmin123!
+Role: Admin
+Username: admin_test
+Email: admin@thunderbuddies.test
+Password: ThunderAdmin123!
+Dashboard: Admin Command / full studio oversight
 
-Client username: client_test
-Client password: ThunderClient123!
+Role: Customer
+Username: client_test
+Email: client@thunderbuddies.test
+Password: ThunderClient123!
+Dashboard: Client portal
+
+Role: Thunder Buddies Developer
+Username: tbs_dev_test
+Email: tbs.dev@thunderbuddies.test
+Password: ThunderDev123!
+Dashboard: Developer Console / Thunder Buddies internal lane
+
+Role: Third-party Developer
+Username: partner_dev_test
+Email: partner.dev@thunderbuddies.test
+Password: PartnerDev123!
+Dashboard: Developer Console / partner studio lane
+
+Role: Tester
+Username: tester_test
+Email: tester@thunderbuddies.test
+Password: ThunderTester123!
+Dashboard: QA Bench
+
+Role: Moderator
+Username: moderator_test
+Email: moderator@thunderbuddies.test
+Password: ThunderMod123!
+Dashboard: Moderator Desk
+
+Role: General Staff
+Username: staff_test
+Email: staff@thunderbuddies.test
+Password: ThunderStaff123!
+Dashboard: General Staff Hub
+```
+
+## Account types and roles
+
+```text
+Customer
+- Client portal access.
+- Link Steam, sync Arma Reforger playtime points, create build requests, and track progress.
+
+Developer
+- Studio dashboard access.
+- Project clocking, build notes, assigned work, freelance pool access, and personal production stats.
+
+Thunder Buddies Developer
+- Developer account with studio_name set to Thunder Buddies Studios.
+- Broader production tabs for internal Thunder Buddies work.
+
+Third-party Developer
+- Developer account with a partner studio_name.
+- Focused access for assigned projects, freelance pool work, and personal time tracking.
+
+Tester
+- Studio QA access.
+- Pipeline, project QA, complexity review, and checklist verification workflows.
+
+Moderator
+- Studio queue/client review access.
+- Client-facing notes, intake review, risk flags, and freelance pool moderation.
+
+Admin
+- Full studio control.
+- User permissions, role changes, suspensions, point balances, economy stats, and all dashboards.
+
+General Staff
+- Any non-customer role with studio access.
+- Uses the studio clock, project timers, role dashboard widgets, and personal stats.
 ```
 
 ## Railway
