@@ -2153,250 +2153,231 @@ def steam_sync():
     return redirect(url_for("client_portal", tab="Account"))
 
 
-@app.post("/xbox/link")
+@app.get("/login/xbox")
+def xbox_login():
+    try:
+        return start_xbox_qauth("login")
+    except RuntimeError as exc:
+        return render_template("login.html", mode="login", error=str(exc), next_url=""), 500
+
+
+@app.get("/xbox/link")
 def xbox_link():
     user = current_user()
     if user.get("role") not in {"customer", "admin"}:
         return redirect(url_for("login", next="/client?tab=Account"))
-
-    gamertag = request.form.get("xbox_gamertag", "").strip()
-    xuid = request.form.get("xbox_xuid", "").strip()
-    if not gamertag and not xuid:
-        session["client_notice"] = "Enter an Xbox gamertag or XUID before linking the account."
+    try:
+        return start_xbox_qauth("link")
+    except RuntimeError as exc:
+        session["client_notice"] = str(exc)
         return redirect(url_for("client_portal", tab="Account"))
 
+
+@app.get("/auth/xbox/callback")
+def xbox_callback():
+    code = request.args.get("code")
+    returned_state = request.args.get("state")
+    expected_state = session.pop("xbox_oauth_state", None)
+    mode = session.pop("xbox_oauth_mode", "login")
+
+    if request.args.get("error"):
+        message = f"Xbox login was rejected: {request.args.get('error_description', request.args['error'])}"
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 400
+
+    if not expected_state or not returned_state or not secrets.compare_digest(expected_state, returned_state):
+        message = "Xbox login state did not match. Please try again."
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 400
+
+    if not code or not xbox_qauth_configured():
+        message = "Xbox login is missing required server configuration."
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 500
+
+    token_body = urlencode(
+        {
+            "client_id": XBOX_QAUTH_CLIENT_ID,
+            "client_secret": XBOX_QAUTH_CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": XBOX_QAUTH_REDIRECT_URI,
+        }
+    ).encode("utf-8")
+    token_request = Request(
+        XBOX_QAUTH_TOKEN_URL,
+        data=token_body,
+        headers={**DISCORD_HEADERS, "Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urlopen(token_request, timeout=10) as response:
+            token_payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        message = f"Xbox token exchange failed. ({read_http_error(exc)})"
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 502
+    except (URLError, TimeoutError) as exc:
+        message = f"Xbox token exchange failed. ({exc})"
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 502
+
+    access_token = token_payload.get("access_token", "")
+    refresh_token = token_payload.get("refresh_token", "")
+    expires_in = int(token_payload.get("expires_in", 0) or 0)
+    if not access_token:
+        message = "Xbox QAuth did not return an access token."
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 502
+
+    profile_request = Request(
+        XBOX_QAUTH_PROFILE_URL,
+        headers={**DISCORD_HEADERS, "Authorization": f"Bearer {access_token}"},
+    )
+    try:
+        with urlopen(profile_request, timeout=10) as response:
+            xbox_profile = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        message = f"Could not fetch your Xbox profile. ({read_http_error(exc)})"
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 502
+    except (URLError, TimeoutError) as exc:
+        message = f"Could not fetch your Xbox profile. ({exc})"
+        if mode == "link":
+            session["client_notice"] = message
+            return redirect(url_for("client_portal", tab="Account"))
+        return render_template("login.html", mode="login", error=message, next_url=""), 502
+
+    xbox_identity = extract_xbox_profile_identity(xbox_profile)
+    expires_at = ""
+    if expires_in > 0:
+        expires_at = datetime.fromtimestamp(time.time() + expires_in, timezone.utc).isoformat()
+
+    current_account = current_user()
     users = load_users()
-    for saved in users:
-        if saved["id"] == user["id"]:
-            saved["xbox_gamertag"] = gamertag or saved.get("xbox_gamertag", "")
-            saved["xbox_xuid"] = xuid or saved.get("xbox_xuid", "")
-            session["account"] = public_user(saved)
-            break
-    @app.get("/login/xbox")
-    def xbox_login():
-        try:
-            return start_xbox_qauth("login")
-        except RuntimeError as exc:
-            return render_template("login.html", mode="login", error=str(exc), next_url=""), 500
-
-
-    @app.get("/xbox/link")
-    def xbox_link():
-        user = current_user()
-        if user.get("role") not in {"customer", "admin"}:
-            return redirect(url_for("login", next="/client?tab=Account"))
-        try:
-            return start_xbox_qauth("link")
-        except RuntimeError as exc:
-            session["client_notice"] = str(exc)
+    if mode == "link" and current_account.get("role") in {"customer", "admin"}:
+        existing_link = find_user_by_xbox_identity(xbox_identity["xuid"], xbox_identity["gamertag"])
+        if existing_link and existing_link.get("id") != current_account.get("id"):
+            session["client_notice"] = "That Xbox account is already linked to another customer account."
             return redirect(url_for("client_portal", tab="Account"))
-
-
-    @app.get("/auth/xbox/callback")
-    def xbox_callback():
-        code = request.args.get("code")
-        returned_state = request.args.get("state")
-        expected_state = session.pop("xbox_oauth_state", None)
-        mode = session.pop("xbox_oauth_mode", "login")
-
-        if request.args.get("error"):
-            message = f"Xbox login was rejected: {request.args.get('error_description', request.args['error'])}"
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 400
-
-        if not expected_state or not returned_state or not secrets.compare_digest(expected_state, returned_state):
-            message = "Xbox login state did not match. Please try again."
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 400
-
-        if not code or not xbox_qauth_configured():
-            message = "Xbox login is missing required server configuration."
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 500
-
-        token_body = urlencode(
-            {
-                "client_id": XBOX_QAUTH_CLIENT_ID,
-                "client_secret": XBOX_QAUTH_CLIENT_SECRET,
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": XBOX_QAUTH_REDIRECT_URI,
-            }
-        ).encode("utf-8")
-        token_request = Request(
-            XBOX_QAUTH_TOKEN_URL,
-            data=token_body,
-            headers={**DISCORD_HEADERS, "Content-Type": "application/x-www-form-urlencoded"},
-            method="POST",
-        )
-        try:
-            with urlopen(token_request, timeout=10) as response:
-                token_payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            message = f"Xbox token exchange failed. ({read_http_error(exc)})"
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 502
-        except (URLError, TimeoutError) as exc:
-            message = f"Xbox token exchange failed. ({exc})"
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 502
-
-        access_token = token_payload.get("access_token", "")
-        refresh_token = token_payload.get("refresh_token", "")
-        expires_in = int(token_payload.get("expires_in", 0) or 0)
-        if not access_token:
-            message = "Xbox QAuth did not return an access token."
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 502
-
-        profile_request = Request(
-            XBOX_QAUTH_PROFILE_URL,
-            headers={**DISCORD_HEADERS, "Authorization": f"Bearer {access_token}"},
-        )
-        try:
-            with urlopen(profile_request, timeout=10) as response:
-                xbox_profile = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            message = f"Could not fetch your Xbox profile. ({read_http_error(exc)})"
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 502
-        except (URLError, TimeoutError) as exc:
-            message = f"Could not fetch your Xbox profile. ({exc})"
-            if mode == "link":
-                session["client_notice"] = message
-                return redirect(url_for("client_portal", tab="Account"))
-            return render_template("login.html", mode="login", error=message, next_url=""), 502
-
-        xbox_identity = extract_xbox_profile_identity(xbox_profile)
-        expires_at = ""
-        if expires_in > 0:
-            expires_at = datetime.fromtimestamp(time.time() + expires_in, timezone.utc).isoformat()
-
-        current_account = current_user()
-        users = load_users()
-        if mode == "link" and current_account.get("role") in {"customer", "admin"}:
-            existing_link = find_user_by_xbox_identity(xbox_identity["xuid"], xbox_identity["gamertag"])
-            if existing_link and existing_link.get("id") != current_account.get("id"):
-                session["client_notice"] = "That Xbox account is already linked to another customer account."
-                return redirect(url_for("client_portal", tab="Account"))
-            target_user = None
-            for saved in users:
-                if saved["id"] == current_account["id"]:
-                    saved["xbox_xuid"] = xbox_identity["xuid"]
-                    saved["xbox_gamertag"] = xbox_identity["gamertag"]
-                    saved["xbox_avatar"] = xbox_identity["avatar"]
-                    saved["xbox_access_token"] = access_token
-                    saved["xbox_refresh_token"] = refresh_token
-                    saved["xbox_token_expires_at"] = expires_at
-                    target_user = saved
-                    break
-            save_users(users)
-            if target_user:
-                session["account"] = public_user(target_user)
-            try:
-                updated_user, awarded = sync_xbox_gameplay_points(current_account["id"])
-                hours = millipoints((updated_user.get("xbox_playtime_minutes", 0) or 0) / 60)
-                session["client_notice"] = f"Xbox linked. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
-            except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
-                session["client_notice"] = f"Xbox linked, but playtime sync needs attention: {exc}"
-            return redirect(url_for("client_portal", tab="Account"))
-
-        user = find_user_by_xbox_identity(xbox_identity["xuid"], xbox_identity["gamertag"])
-        if not user:
-            email = sanitized_xbox_local_email(xbox_identity["xuid"], xbox_identity["gamertag"])
-            user = find_user(email)
-        if not user:
-            username = xbox_identity["gamertag"] or f"XboxUser{secrets.randbelow(9999)}"
-            user = create_user(username, sanitized_xbox_local_email(xbox_identity["xuid"], xbox_identity["gamertag"]), secrets.token_urlsafe(24), "customer")
-            users = load_users()
+        target_user = None
         for saved in users:
-            if saved["id"] == user["id"]:
-                saved["username"] = xbox_identity["gamertag"] or saved["username"]
+            if saved["id"] == current_account["id"]:
                 saved["xbox_xuid"] = xbox_identity["xuid"]
-                saved["xbox_gamertag"] = xbox_identity["gamertag"] or saved.get("xbox_gamertag", "")
+                saved["xbox_gamertag"] = xbox_identity["gamertag"]
                 saved["xbox_avatar"] = xbox_identity["avatar"]
                 saved["xbox_access_token"] = access_token
                 saved["xbox_refresh_token"] = refresh_token
                 saved["xbox_token_expires_at"] = expires_at
-                user = saved
+                target_user = saved
                 break
         save_users(users)
-        login_user(user)
+        if target_user:
+            session["account"] = public_user(target_user)
         try:
-            updated_user, awarded = sync_xbox_gameplay_points(user["id"])
+            updated_user, awarded = sync_xbox_gameplay_points(current_account["id"])
             hours = millipoints((updated_user.get("xbox_playtime_minutes", 0) or 0) / 60)
-            session["client_notice"] = f"Xbox login complete. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
+            session["client_notice"] = f"Xbox linked. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
         except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
-            session["client_notice"] = f"Xbox login complete, but playtime sync needs attention: {exc}"
-        return redirect(url_for("dashboard"))
-
-
-    @app.post("/xbox/playtime-proof")
-    def xbox_playtime_proof():
-        user = current_user()
-        if user.get("role") not in {"customer", "admin"}:
-            return redirect(url_for("login", next="/client?tab=Account"))
-        if not (user.get("xbox_gamertag") or user.get("xbox_xuid")):
-            session["client_notice"] = "Link your Xbox account before submitting Xbox playtime proof."
-            return redirect(url_for("client_portal", tab="Account"))
-
-        try:
-            hours_claimed = millipoints(request.form.get("hours_claimed", 0))
-        except ValueError:
-            hours_claimed = 0
-        if hours_claimed <= 0:
-            session["client_notice"] = "Enter the Xbox hours shown in your screenshot before submitting."
-            return redirect(url_for("client_portal", tab="Account"))
-        if request.form.get("confirm_visibility") != "on":
-            session["client_notice"] = "Confirm that the screenshot clearly shows your gamertag and hours."
-            return redirect(url_for("client_portal", tab="Account"))
-
-        proof_image = request.files.get("proof_image")
-        if not proof_image or not proof_image.filename:
-            session["client_notice"] = "Upload a screenshot that clearly shows your gamertag and hours."
-            return redirect(url_for("client_portal", tab="Account"))
-
-        filename = safe_upload_filename(user.get("id", "xbox"), proof_image.filename)
-        ensure_storage()
-        target_path = XBOX_PROOF_UPLOAD_DIR / filename
-        proof_image.save(target_path)
-        image_url = url_for("static", filename=f"uploads/xbox-proofs/{filename}")
-
-        users = load_users()
-        for saved in users:
-            if saved["id"] != user["id"]:
-                continue
-            saved.setdefault("xbox_playtime_submissions", []).insert(
-                0,
-                {
-                    "id": f"xproof_{secrets.token_hex(5)}",
-                    "gamertag": saved.get("xbox_gamertag", "") or saved.get("xbox_xuid", "Xbox user"),
-                    "hours_claimed": hours_claimed,
-                    "image_url": image_url,
-                    "note": request.form.get("note", "").strip(),
-                    "status": "Pending manual review",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                },
-            )
-            session["account"] = public_user(saved)
-            break
-        save_users(users)
-        session["client_notice"] = "Xbox play hours submitted for review. Make sure the screenshot clearly shows your gamertag and hours."
+            session["client_notice"] = f"Xbox linked, but playtime sync needs attention: {exc}"
         return redirect(url_for("client_portal", tab="Account"))
+
+    user = find_user_by_xbox_identity(xbox_identity["xuid"], xbox_identity["gamertag"])
+    if not user:
+        email = sanitized_xbox_local_email(xbox_identity["xuid"], xbox_identity["gamertag"])
+        user = find_user(email)
+    if not user:
+        username = xbox_identity["gamertag"] or f"XboxUser{secrets.randbelow(9999)}"
+        user = create_user(username, sanitized_xbox_local_email(xbox_identity["xuid"], xbox_identity["gamertag"]), secrets.token_urlsafe(24), "customer")
+        users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["username"] = xbox_identity["gamertag"] or saved["username"]
+            saved["xbox_xuid"] = xbox_identity["xuid"]
+            saved["xbox_gamertag"] = xbox_identity["gamertag"] or saved.get("xbox_gamertag", "")
+            saved["xbox_avatar"] = xbox_identity["avatar"]
+            saved["xbox_access_token"] = access_token
+            saved["xbox_refresh_token"] = refresh_token
+            saved["xbox_token_expires_at"] = expires_at
+            user = saved
+            break
+    save_users(users)
+    login_user(user)
+    try:
+        updated_user, awarded = sync_xbox_gameplay_points(user["id"])
+        hours = millipoints((updated_user.get("xbox_playtime_minutes", 0) or 0) / 60)
+        session["client_notice"] = f"Xbox login complete. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
+        session["client_notice"] = f"Xbox login complete, but playtime sync needs attention: {exc}"
+    return redirect(url_for("dashboard"))
+
+
+@app.post("/xbox/playtime-proof")
+def xbox_playtime_proof():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Account"))
+    if not (user.get("xbox_gamertag") or user.get("xbox_xuid")):
+        session["client_notice"] = "Link your Xbox account before submitting Xbox playtime proof."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    try:
+        hours_claimed = millipoints(request.form.get("hours_claimed", 0))
+    except ValueError:
+        hours_claimed = 0
+    if hours_claimed <= 0:
+        session["client_notice"] = "Enter the Xbox hours shown in your screenshot before submitting."
+        return redirect(url_for("client_portal", tab="Account"))
+    if request.form.get("confirm_visibility") != "on":
+        session["client_notice"] = "Confirm that the screenshot clearly shows your gamertag and hours."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    proof_image = request.files.get("proof_image")
+    if not proof_image or not proof_image.filename:
+        session["client_notice"] = "Upload a screenshot that clearly shows your gamertag and hours."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    filename = safe_upload_filename(user.get("id", "xbox"), proof_image.filename)
+    ensure_storage()
+    target_path = XBOX_PROOF_UPLOAD_DIR / filename
+    proof_image.save(target_path)
+    image_url = url_for("static", filename=f"uploads/xbox-proofs/{filename}")
+
+    users = load_users()
+    for saved in users:
+        if saved["id"] != user["id"]:
+            continue
+        saved.setdefault("xbox_playtime_submissions", []).insert(
+            0,
+            {
+                "id": f"xproof_{secrets.token_hex(5)}",
+                "gamertag": saved.get("xbox_gamertag", "") or saved.get("xbox_xuid", "Xbox user"),
+                "hours_claimed": hours_claimed,
+                "image_url": image_url,
+                "note": request.form.get("note", "").strip(),
+                "status": "Pending manual review",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        session["account"] = public_user(saved)
+        break
+    save_users(users)
+    session["client_notice"] = "Xbox play hours submitted for review. Make sure the screenshot clearly shows your gamertag and hours."
+    return redirect(url_for("client_portal", tab="Account"))
 
 
 @app.post("/studio/freelance/claim/<reference>")
