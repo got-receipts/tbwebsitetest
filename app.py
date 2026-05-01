@@ -375,7 +375,7 @@ PHASES = [
 PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
 STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Settings", "Admin"]
-CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
+CLIENT_TABS = ["Overview", "Requests", "New Build", "Donate", "Account"]
 ROLES = ["customer", "developer", "moderator", "tester", "staff", "admin"]
 STAFF_ROLES = {"developer", "moderator", "tester", "staff", "admin"}
 ROLE_DASHBOARDS = {
@@ -412,14 +412,42 @@ ROLE_DASHBOARDS = {
 }
 POINT_DONATION_RATE = 1.25
 POINTS_PER_HOUR = 3.4
+DEV_HOURLY_RATE = 85
 GAMEPLAY_POINT_RATE = 7.5
 ARMA_REFORGER_STEAM_APP_ID = 1874880
 STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+GOFUNDME_CHARITY_SEARCH_URL = "https://www.gofundme.com/s?q="
 WORKSHOP_BASE_URL = "https://reforger.armaplatform.com/workshop"
 WORKSHOP_PAGE_SIZE = 16
 WORKSHOP_CACHE_SECONDS = 60 * 20
 WORKSHOP_CACHE = {}
+FEATURED_CHARITIES = [
+    {
+        "id": "gofundme_org",
+        "name": "GoFundMe.org",
+        "cause": "Crisis relief and community support",
+        "url": "https://www.gofundme.org/",
+    },
+    {
+        "id": "essentials_fund",
+        "name": "GoFundMe.org Essentials Fund",
+        "cause": "Emergency essentials support",
+        "url": "https://www.gofundme.org/",
+    },
+    {
+        "id": "api_alliance",
+        "name": "Api Alliance",
+        "cause": "Human rights",
+        "url": "https://www.gofundme.com/charity/api-alliance",
+    },
+    {
+        "id": "api_foundation",
+        "name": "Api Foundation",
+        "cause": "Sports and recreation",
+        "url": "https://www.gofundme.com/charity/api-foundation",
+    },
+]
 TEST_ACCOUNTS = [
     {
         "username": "admin_test",
@@ -618,6 +646,7 @@ def seed_test_accounts():
                 "server_hours": 0,
                 "supported_server_sessions": [],
                 "point_transactions": [],
+                "charity_donations": [],
                 "suspended": False,
                 "suspension_reason": "",
                 "studio_name": account.get("studio_name", ""),
@@ -656,6 +685,7 @@ def normalize_user(user):
     user.setdefault("supported_server_sessions", [])
     user.setdefault("point_spend_log", [])
     user.setdefault("point_transactions", [])
+    user.setdefault("charity_donations", [])
     user.setdefault("suspended", False)
     user.setdefault("suspension_reason", "")
     user.setdefault("studio_name", "Thunder Buddies Studios" if user.get("role") == "admin" else "")
@@ -748,6 +778,7 @@ def create_user(username, email, password, role="customer"):
         "supported_server_sessions": [],
         "point_spend_log": [],
         "point_transactions": [],
+        "charity_donations": [],
         "suspended": False,
         "suspension_reason": "",
         "studio_name": "",
@@ -1032,6 +1063,10 @@ def estimate_hours(score):
     return millipoints(max(0.25, score / POINTS_PER_HOUR))
 
 
+def point_cash_value(points):
+    return millipoints(estimate_hours(points) * DEV_HOURLY_RATE)
+
+
 def advised_donation(score):
     return millipoints(score * POINT_DONATION_RATE)
 
@@ -1213,7 +1248,8 @@ def dashboard_metrics(records):
     }
 
 
-def economy_metrics(records):
+def economy_metrics(records, users=None):
+    users = users or []
     active = [record for record in records if record.get("status_index", 0) < len(PHASES) - 1]
     completed = [record for record in records if record.get("status_index", 0) >= len(PHASES) - 1]
     pooled = [record for record in records if record.get("pool_status") in {"auto_review", "freelance_pool", "claimed_freelance"}]
@@ -1221,17 +1257,44 @@ def economy_metrics(records):
     active_points = sum(record.get("score", 0) for record in active)
     pool_points = sum(record.get("score", 0) for record in pooled)
     completed_points = sum(record.get("score", 0) for record in completed)
-    point_rate = 7.5
+    account_points = sum(user.get("account_points", 0) for user in users if user.get("role") == "customer")
+    earned_points = sum(
+        transaction.get("points", 0)
+        for user in users
+        for transaction in user.get("point_transactions", [])
+        if transaction.get("type") == "credit"
+    )
+    spent_points = sum(
+        transaction.get("points", 0)
+        for user in users
+        for transaction in user.get("point_transactions", [])
+        if transaction.get("type") == "debit"
+    )
+    production_circulating_points = active_points + pool_points
+    circulating_points = millipoints(account_points + production_circulating_points)
+    circulation_hours = estimate_hours(circulating_points)
+    production_hours = estimate_hours(production_circulating_points)
+    bank_hours = estimate_hours(account_points)
     return {
         "total_points": total_points,
         "active_points": active_points,
         "pool_points": pool_points,
         "completed_points": completed_points,
-        "circulating_points": active_points + pool_points,
-        "estimated_pipeline_value": round(active_points * point_rate),
-        "estimated_pool_value": round(pool_points * point_rate),
-        "estimated_completed_value": round(completed_points * point_rate),
-        "point_rate": point_rate,
+        "account_points": millipoints(account_points),
+        "earned_points": millipoints(earned_points),
+        "spent_points": millipoints(spent_points),
+        "production_circulating_points": millipoints(production_circulating_points),
+        "circulating_points": circulating_points,
+        "circulation_hours": circulation_hours,
+        "production_hours": production_hours,
+        "bank_hours": bank_hours,
+        "estimated_circulation_value": round(circulation_hours * DEV_HOURLY_RATE),
+        "estimated_pipeline_value": round(production_hours * DEV_HOURLY_RATE),
+        "estimated_bank_value": round(bank_hours * DEV_HOURLY_RATE),
+        "estimated_pool_value": round(estimate_hours(pool_points) * DEV_HOURLY_RATE),
+        "estimated_completed_value": round(estimate_hours(completed_points) * DEV_HOURLY_RATE),
+        "hourly_rate": DEV_HOURLY_RATE,
+        "points_per_hour": POINTS_PER_HOUR,
         "average_eta": round(sum(record.get("eta_days", 0) for record in records) / len(records)) if records else 0,
     }
 
@@ -1242,6 +1305,20 @@ def role_counts(users):
         role = user.get("role", "customer")
         counts[role] = counts.get(role, 0) + 1
     return counts
+
+
+def charity_admin_queue(users):
+    donations = []
+    for user in users:
+        for donation in user.get("charity_donations", []):
+            donations.append(
+                {
+                    **donation,
+                    "username": user.get("username", ""),
+                    "email": user.get("email", ""),
+                }
+            )
+    return sorted(donations, key=lambda item: item.get("created_at", ""), reverse=True)
 
 
 def client_metrics(records):
@@ -1270,6 +1347,8 @@ def client_portal_context(user, records, active_tab, error=""):
         "active_tab": active_tab,
         "gameplay_point_rate": GAMEPLAY_POINT_RATE,
         "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
+        "featured_charities": FEATURED_CHARITIES,
+        "gofundme_search_url": GOFUNDME_CHARITY_SEARCH_URL,
         "notice": session.pop("client_notice", ""),
         "error": error,
     }
@@ -1755,6 +1834,75 @@ def steam_sync():
     return redirect(url_for("client_portal", tab="Account"))
 
 
+@app.post("/client/donate")
+def donate_points():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Donate"))
+
+    charity_id = request.form.get("charity_id", "custom")
+    charity = next((item for item in FEATURED_CHARITIES if item["id"] == charity_id), None)
+    charity_name = request.form.get("custom_charity_name", "").strip()
+    charity_url = request.form.get("custom_charity_url", "").strip()
+    if charity:
+        charity_name = charity["name"]
+        charity_url = charity["url"]
+    if not charity_name:
+        session["client_notice"] = "Choose a nonprofit or enter a charity name."
+        return redirect(url_for("client_portal", tab="Donate"))
+
+    try:
+        points = millipoints(request.form.get("points", 0))
+    except ValueError:
+        points = 0
+    if points <= 0:
+        session["client_notice"] = "Enter a point amount above zero."
+        return redirect(url_for("client_portal", tab="Donate"))
+
+    users = load_users()
+    for saved in users:
+        if saved["id"] != user["id"]:
+            continue
+        if saved.get("account_points", 0) < points:
+            session["client_notice"] = "Point balance is too low for that charity allocation."
+            break
+        donation_id = f"charity_{secrets.token_hex(5)}"
+        value = point_cash_value(points)
+        saved["account_points"] = millipoints(saved.get("account_points", 0) - points)
+        donation = {
+            "id": donation_id,
+            "charity_name": charity_name,
+            "charity_url": charity_url,
+            "points": points,
+            "estimated_value": value,
+            "status": "Submitted to Thunder Buddies processing",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "note": request.form.get("note", "").strip(),
+            "processed_by_admin": False,
+        }
+        saved.setdefault("charity_donations", []).insert(0, donation)
+        saved.setdefault("point_transactions", []).insert(
+            0,
+            {
+                "id": f"debit_{donation_id}",
+                "type": "debit",
+                "source": "charity",
+                "label": f"Charity allocation: {charity_name}",
+                "points": points,
+                "hours": 0,
+                "reference": "",
+                "note": f"{charity_name} thanks you. Thunder Buddies will process this donation.",
+                "created_at": donation["created_at"],
+                "balance_after": saved["account_points"],
+            },
+        )
+        session["account"] = public_user(saved)
+        session["client_notice"] = f"Donation submitted successfully. {charity_name} thanks you for supporting their organization."
+        break
+    save_users(users)
+    return redirect(url_for("client_portal", tab="Donate"))
+
+
 @app.get("/api/workshop")
 def api_workshop():
     user = current_user()
@@ -1812,6 +1960,7 @@ def studio_logout():
 def studio_dashboard():
     account = current_user()
     records = sort_records(load_requests())
+    users = load_users()
     query = request.args.get("q", "").strip().lower()
     active_tab = request.args.get("tab", "Command")
     visible_tabs = studio_tabs_for_user(account)
@@ -1841,12 +1990,13 @@ def studio_dashboard():
         active_tab=active_tab,
         query=query,
         account=account,
-        users=[public_user(user) for user in load_users()],
+        users=[public_user(user) for user in users],
         is_admin=account.get("role") == "admin",
         admin_permissions_unlocked=admin_permissions_unlocked(),
         roles=ROLES,
-        economy=economy_metrics(records),
-        role_counts=role_counts(load_users()),
+        economy=economy_metrics(records, users),
+        role_counts=role_counts(users),
+        charity_queue=charity_admin_queue(users),
         total_tracked_hours=total_tracked_hours,
         staff_stats=staff_time_stats(records, account),
         pool_records=[

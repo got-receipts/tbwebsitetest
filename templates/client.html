@@ -33,6 +33,10 @@
     </header>
 
     <main class="client-main">
+      <div class="client-ecosystem-notice">
+        This ecosystem will expand into a roleplay mod and Conflict economy system across Arma Reforger, with Discord integration for partnered servers, communities, and studios.
+      </div>
+
       <section class="client-hero-panel">
         <div>
           <span class="label">Signed in as</span>
@@ -194,7 +198,7 @@
               {% if not user.steam_id %}
                 <p class="pool-note">Steam account link required before creating a submission.</p>
               {% endif %}
-              <button class="submit-button" type="submit" {{ "disabled" if not user.steam_id else "" }}>Submit to studio</button>
+              <button class="submit-button" type="submit">Submit to studio</button>
             </aside>
             <div class="question-list">
               <article class="builder-option-shell">
@@ -289,6 +293,94 @@
         </section>
       {% endif %}
 
+      <div class="modal-backdrop" id="curationBlockModal" aria-hidden="true">
+        <section class="site-modal curation-block-modal" role="dialog" aria-modal="true" aria-label="Project curation blocked">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Project curation</span>
+          <h2>Submission blocked</h2>
+          <div class="curation-block-list" id="curationBlockReasons"></div>
+          <div class="hero-actions">
+            <a class="primary-link" href="{{ url_for('client_portal', tab='Account') }}">Open account</a>
+            <button class="secondary-link" type="button" data-close-modal>Review build</button>
+          </div>
+        </section>
+      </div>
+
+      {% if active_tab == "Donate" %}
+        <section class="settings-grid">
+          <article class="donation-panel">
+            <span class="label">Charity points <span class="info-dot" title="Allocates point value from your point bank. External donation fulfillment is tracked separately.">i</span></span>
+            <h2>Use points for charity</h2>
+            <p>{{ user.account_points }} points in bank</p>
+            <form method="post" action="{{ url_for('donate_points') }}">
+              <label>
+                Nonprofit
+                <select name="charity_id">
+                  {% for charity in featured_charities %}
+                    <option value="{{ charity.id }}">{{ charity.name }} - {{ charity.cause }}</option>
+                  {% endfor %}
+                  <option value="custom">Custom GoFundMe nonprofit</option>
+                </select>
+              </label>
+              <label>
+                Custom charity name
+                <input name="custom_charity_name" placeholder="Only needed for custom nonprofit" />
+              </label>
+              <label>
+                Custom GoFundMe / nonprofit URL
+                <input name="custom_charity_url" placeholder="https://www.gofundme.com/charity/..." />
+              </label>
+              <label>
+                Points to allocate
+                <input name="points" type="number" min="0.001" step="0.001" max="{{ user.account_points }}" placeholder="25" required />
+              </label>
+              <label>
+                Note
+                <input name="note" placeholder="Optional donation note" />
+              </label>
+              <button class="submit-button" type="submit">Allocate points</button>
+            </form>
+          </article>
+
+          <article>
+            <span class="label">GoFundMe search <span class="info-dot" title="Use search/custom URL until a GoFundMe partner API is available.">i</span></span>
+            <h2>Find a nonprofit</h2>
+            <p>Search GoFundMe, then paste the nonprofit page as a custom URL.</p>
+            <a class="submit-button" href="{{ gofundme_search_url }}nonprofit" target="_blank" rel="noopener">Open search</a>
+          </article>
+
+          <article>
+            <span class="label">Featured nonprofits</span>
+            <h2>Public list</h2>
+            <div class="client-request-list">
+              {% for charity in featured_charities %}
+                <a class="client-request-row" href="{{ charity.url }}" target="_blank" rel="noopener">
+                  <span>{{ charity.cause }}</span>
+                  <strong>{{ charity.name }}</strong>
+                  <em>{{ charity.url }}</em>
+                </a>
+              {% endfor %}
+            </div>
+          </article>
+
+          <article>
+            <span class="label">Donation allocations</span>
+            <h2>Charity ledger</h2>
+            <div class="transaction-list">
+              {% for donation in user.charity_donations[:10] %}
+                <div class="transaction-row debit">
+                  <span>-{{ donation.points }} pts</span>
+                  <strong>{{ donation.charity_name }}</strong>
+                  <em>{{ donation.charity_name }} thanks you. {{ donation.status }}</em>
+                </div>
+              {% else %}
+                <p class="empty-state">No charity allocations yet.</p>
+              {% endfor %}
+            </div>
+          </article>
+        </section>
+      {% endif %}
+
       {% if active_tab == "Account" %}
         <section class="settings-grid">
           <article>
@@ -332,20 +424,29 @@
           <article>
             <span class="label">Transactions <span class="info-dot" title="Credit adds points. Debit spends points.">i</span></span>
             <h2>Point ledger</h2>
-            <div class="transaction-list">
-              {% for transaction in user.point_transactions[:10] %}
-                <div class="transaction-row {{ transaction.type }}">
-                  <span>{{ "+" if transaction.type == "credit" else "-" }}{{ transaction.points }} pts</span>
-                  <strong>{{ transaction.label }}</strong>
-                  <em>{{ transaction.reference or transaction.source }}{% if transaction.hours %} | {{ transaction.hours }} hrs{% endif %}</em>
-                </div>
-              {% else %}
-                <p class="empty-state">No point transactions yet.</p>
-              {% endfor %}
-            </div>
+            <button class="widget-button compact" type="button" data-modal="pointLedgerModal">Open transactions</button>
           </article>
         </section>
       {% endif %}
+
+      <div class="modal-backdrop" id="pointLedgerModal" aria-hidden="true">
+        <section class="site-modal widget-modal point-ledger-modal" role="dialog" aria-modal="true" aria-label="Point transactions">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Point bank</span>
+          <h2>Transactions</h2>
+          <div class="transaction-list slim-ledger">
+            {% for transaction in user.point_transactions[:20] %}
+              <div class="transaction-row {{ transaction.type }}">
+                <span>{{ "+" if transaction.type == "credit" else "-" }}{{ transaction.points }} pts</span>
+                <strong>{{ transaction.label }}</strong>
+                <em>{{ transaction.reference or transaction.source }}{% if transaction.hours %} | {{ transaction.hours }} hrs{% endif %}</em>
+              </div>
+            {% else %}
+              <p class="empty-state">No point transactions yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
     </main>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>

@@ -358,17 +358,17 @@
           <article>
             <span class="label">Production economy</span>
             <h2>{{ economy.circulating_points }} points circulating</h2>
-            <p>Active production points plus freelance pool points currently moving through the studio.</p>
+            <p>{{ economy.account_points }} account bank points plus {{ economy.production_circulating_points }} active/pool production points.</p>
           </article>
           <article>
-            <span class="label">Pipeline value</span>
-            <h2>${{ economy.estimated_pipeline_value }}</h2>
-            <p>Estimated value using {{ economy.point_rate }} dollars per production point.</p>
+            <span class="label">Circulation value</span>
+            <h2>${{ economy.estimated_circulation_value }}</h2>
+            <p>{{ economy.circulation_hours }} estimated dev hours at ${{ economy.hourly_rate }}/hour.</p>
           </article>
           <article>
-            <span class="label">Average ETA</span>
-            <h2>{{ economy.average_eta }} days</h2>
-            <p>Average estimated timeline across all tracked tickets.</p>
+            <span class="label">Point bank value</span>
+            <h2>${{ economy.estimated_bank_value }}</h2>
+            <p>{{ economy.bank_hours }} estimated dev hours sitting in client accounts.</p>
           </article>
           <article>
             <span class="label">Steam gameplay sync</span>
@@ -386,23 +386,62 @@
             <p>All points created by client build requests.</p>
           </article>
           <article>
-            <span class="label">Active points</span>
-            <strong>{{ economy.active_points }}</strong>
-            <p>Points currently inside studio production lanes.</p>
+            <span class="label">Points in circulation</span>
+            <strong>{{ economy.circulating_points }}</strong>
+            <p>Client point bank plus active and pool production points.</p>
           </article>
           <article>
-            <span class="label">Pool points</span>
-            <strong>{{ economy.pool_points }}</strong>
-            <p>Points waiting in auto review, freelance pool, or freelance claim.</p>
+            <span class="label">Circulation value</span>
+            <strong>${{ economy.estimated_circulation_value }}</strong>
+            <p>{{ economy.circulation_hours }} dev hours at ${{ economy.hourly_rate }}/hour.</p>
           </article>
           <article>
-            <span class="label">Completed value</span>
-            <strong>${{ economy.estimated_completed_value }}</strong>
-            <p>Estimated delivered value at current point rate.</p>
+            <span class="label">Client bank</span>
+            <strong>{{ economy.account_points }} pts</strong>
+            <p>${{ economy.estimated_bank_value }} in unspent account point value.</p>
           </article>
         </section>
 
         <section class="admin-grid">
+          <article class="complexity-panel">
+            <span class="label">Point movement</span>
+            <h2>{{ economy.earned_points }} earned / {{ economy.spent_points }} spent</h2>
+            <div class="module-summary">
+              <article>
+                <strong>${{ economy.estimated_pipeline_value }}</strong>
+                <span>Active production value</span>
+                <p>{{ economy.production_hours }} dev hours currently in production and pool lanes.</p>
+              </article>
+              <article>
+                <strong>${{ economy.estimated_pool_value }}</strong>
+                <span>Pool value</span>
+                <p>{{ economy.pool_points }} points waiting in auto review, freelance pool, or freelance claim.</p>
+              </article>
+              <article>
+                <strong>${{ economy.estimated_completed_value }}</strong>
+                <span>Completed value</span>
+                <p>Delivered work valued at ${{ economy.hourly_rate }}/hour.</p>
+              </article>
+            </div>
+          </article>
+          <article class="complexity-panel">
+            <span class="label">Charity processing</span>
+            <h2>Admin donation queue</h2>
+            <div class="transaction-list">
+              {% for donation in charity_queue[:12] %}
+                <div class="transaction-row debit">
+                  <span>${{ donation.estimated_value }} | {{ donation.points }} pts</span>
+                  <strong>{{ donation.charity_name }}</strong>
+                  <em>{{ donation.username }} | {{ donation.status }}</em>
+                  {% if donation.charity_url %}
+                    <a class="quiet-link" href="{{ donation.charity_url }}" target="_blank" rel="noopener">Open nonprofit</a>
+                  {% endif %}
+                </div>
+              {% else %}
+                <p class="empty-state">No charity allocations waiting.</p>
+              {% endfor %}
+            </div>
+          </article>
           <article class="complexity-panel">
             <span class="label">Admin oversight</span>
             <h2>User permissions</h2>

@@ -775,6 +775,19 @@ meter {
   padding: clamp(30px, 6vw, 64px) clamp(18px, 5vw, 72px);
 }
 
+.client-ecosystem-notice {
+  background: rgba(246, 198, 91, 0.16);
+  border: 1px solid rgba(246, 198, 91, 0.55);
+  border-radius: 8px;
+  color: #ffe28c;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.45;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
 .client-hero-panel {
   align-items: end;
   background:
@@ -949,6 +962,27 @@ meter {
   font-style: normal;
 }
 
+.slim-ledger {
+  max-height: min(62vh, 560px);
+  overflow: auto;
+}
+
+.slim-ledger .transaction-row {
+  grid-template-columns: minmax(88px, 0.35fr) minmax(160px, 1fr);
+}
+
+.slim-ledger .transaction-row em {
+  grid-column: 1 / -1;
+}
+
+.point-ledger-modal h2 {
+  letter-spacing: 0;
+}
+
+.donation-panel {
+  border-color: rgba(246, 198, 91, 0.28);
+}
+
 .eta-badge,
 .pool-note {
   border: 1px solid rgba(246, 198, 91, 0.22);
@@ -962,6 +996,47 @@ meter {
 .pool-note {
   border-color: rgba(71, 213, 195, 0.24);
   color: #bff8ef;
+}
+
+.curation-block-modal {
+  max-width: 640px;
+}
+
+.curation-block-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.curation-block-reason {
+  align-items: start;
+  background: rgba(255, 95, 95, 0.08);
+  border: 1px solid rgba(255, 137, 137, 0.22);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 30px 1fr;
+  padding: 12px;
+  text-align: left;
+}
+
+.curation-block-reason > span {
+  align-items: center;
+  background: rgba(255, 95, 95, 0.18);
+  border: 1px solid rgba(255, 137, 137, 0.34);
+  border-radius: 999px;
+  color: #ffb2b2;
+  display: flex;
+  font-weight: 900;
+  height: 28px;
+  justify-content: center;
+  text-transform: uppercase;
+  width: 28px;
+}
+
+.curation-block-reason p {
+  color: var(--muted);
+  margin: 4px 0 0;
 }
 
 .danger-text {

@@ -21,6 +21,7 @@ const pointBalanceNotice = document.querySelector("#pointBalanceNotice");
 const submitButton = form?.querySelector("button[type='submit']");
 const accountPointBalance = Number(form?.dataset.pointBalance || 0);
 const steamLinked = form?.dataset.steamLinked !== "false";
+let currentComplexityScore = 0;
 const loadedWorkshopIds = new Set(
   Array.from(document.querySelectorAll(".dependency-check input[type='checkbox']")).map((input) =>
     input.name.replace(/^dep_/, "")
@@ -93,6 +94,7 @@ function calculateScore() {
   if (selectedCount >= 6) score += 24;
   if (dependencyCount >= 3) score += 12;
   if (dependencyCount >= 6) score += 18;
+  currentComplexityScore = score;
 
   scoreLabel.textContent = `${score.toFixed(3)} pts`;
   tierLabel.textContent = tierFor(score);
@@ -109,7 +111,6 @@ function calculateScore() {
     if (!steamLinked) {
       pointBalanceNotice.textContent = "Steam link required before submission";
       pointBalanceNotice.classList.add("danger-text");
-      if (submitButton) submitButton.disabled = true;
       meter.value = Math.min(score, Number(meter.max));
       return;
     }
@@ -117,14 +118,32 @@ function calculateScore() {
     if (remaining < 0) {
       pointBalanceNotice.textContent = `Need ${Math.abs(remaining).toFixed(3)} more account points`;
       pointBalanceNotice.classList.add("danger-text");
-      if (submitButton) submitButton.disabled = true;
     } else {
       pointBalanceNotice.textContent = `Balance after submit: ${remaining.toFixed(3)} points`;
       pointBalanceNotice.classList.remove("danger-text");
-      if (submitButton) submitButton.disabled = false;
     }
   }
   meter.value = Math.min(score, Number(meter.max));
+}
+
+function showCurationBlock(reasons) {
+  const modal = document.querySelector("#curationBlockModal");
+  const reasonList = document.querySelector("#curationBlockReasons");
+  if (!modal || !reasonList) return;
+  reasonList.innerHTML = reasons
+    .map(
+      (reason) => `
+        <div class="curation-block-reason">
+          <span aria-hidden="true">x</span>
+          <div>
+            <strong>${escapeHtml(reason.title)}</strong>
+            <p>${escapeHtml(reason.detail)}</p>
+          </div>
+        </div>
+      `
+    )
+    .join("");
+  openModal("curationBlockModal");
 }
 
 function escapeHtml(value = "") {
@@ -290,10 +309,35 @@ form?.addEventListener("submit", (event) => {
   const selected =
     cards.some((card) => card.querySelector("input[type='checkbox']").checked) ||
     document.querySelectorAll(".option-check input:checked, .dependency-check input:checked").length > 0;
+  const blockers = [];
   if (!selected) {
     event.preventDefault();
     scoreLabel.textContent = "Pick a module";
     tierLabel.textContent = "Select at least one build area";
+    blockers.push({
+      title: "No build scope selected",
+      detail: "Choose at least one build system or workshop dependency before curation.",
+    });
+  }
+  if (!steamLinked) {
+    blockers.push({
+      title: "Steam not connected",
+      detail: "Link Steam so Arma Reforger gameplay points can be verified.",
+    });
+  }
+  if (accountPointBalance <= 0 || accountPointBalance < currentComplexityScore) {
+    const shortage = Math.max(currentComplexityScore - accountPointBalance, 0).toFixed(3);
+    blockers.push({
+      title: "Point balance is too low for project curation",
+      detail:
+        accountPointBalance <= 0
+          ? "Your point bank has no spendable points yet."
+          : `This build needs ${shortage} more points before it can proceed.`,
+    });
+  }
+  if (blockers.length) {
+    event.preventDefault();
+    showCurationBlock(blockers);
   }
 });
 
