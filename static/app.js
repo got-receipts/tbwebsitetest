@@ -12,7 +12,6 @@ const modalButtons = Array.from(document.querySelectorAll("[data-modal]"));
 const closeButtons = Array.from(document.querySelectorAll("[data-close-modal]"));
 const roleSelect = document.querySelector("#roleSelect");
 const accessCodeField = document.querySelector("#accessCodeField");
-const infoDots = Array.from(document.querySelectorAll(".info-dot"));
 const workshopGrid = document.querySelector("#workshopDependencyGrid");
 const workshopLoadMore = document.querySelector("#workshopLoadMore");
 const workshopSearch = document.querySelector("#workshopSearch");
@@ -28,28 +27,15 @@ const donationPointsInput = document.querySelector("#donationPoints");
 const donationValuePreview = document.querySelector("#donationValuePreview");
 const donationBalancePreview = document.querySelector("#donationBalancePreview");
 const publicCharityRows = Array.from(document.querySelectorAll("#publicCharityList .client-request-row"));
-const xboxProofDropzone = document.querySelector("#xboxProofDropzone");
-const xboxProofInput = document.querySelector("#xboxProofInput");
-const xboxProofFilename = document.querySelector("#xboxProofFilename");
-const xboxProofPreview = document.querySelector("#xboxProofPreview");
 const submitButton = form?.querySelector("button[type='submit']");
 const accountPointBalance = Number(form?.dataset.pointBalance || 0);
-const gameLinked = form?.dataset.gameLinked !== "false";
+const steamLinked = form?.dataset.steamLinked !== "false";
 let currentComplexityScore = 0;
 const loadedWorkshopIds = new Set(
   Array.from(document.querySelectorAll(".dependency-check input[type='checkbox']")).map((input) =>
     input.name.replace(/^dep_/, "")
   )
 );
-
-infoDots.forEach((dot) => {
-  const tooltip = dot.getAttribute("title") || dot.dataset.tooltip || "";
-  if (!tooltip) return;
-  dot.dataset.tooltip = tooltip;
-  dot.setAttribute("aria-label", tooltip);
-  dot.setAttribute("tabindex", "0");
-  dot.removeAttribute("title");
-});
 
 function tierFor(score) {
   if (score >= 170) return "Campaign grade";
@@ -131,8 +117,8 @@ function calculateScore() {
         : `ETA: ${etaDays} days`;
   }
   if (pointBalanceNotice) {
-    if (!gameLinked) {
-      pointBalanceNotice.textContent = "Steam or Xbox link required before submission";
+    if (!steamLinked) {
+      pointBalanceNotice.textContent = "Steam link required before submission";
       pointBalanceNotice.classList.add("danger-text");
       meter.value = Math.min(score, Number(meter.max));
       return;
@@ -248,27 +234,6 @@ function filterCharityList() {
     ? `${visibleCount} nonprofits match the current filters.`
     : "No nonprofits match the current filters. Use Custom GoFundMe nonprofit if needed.";
   syncVisibleCharityOption();
-}
-
-function renderXboxProofPreview(file) {
-  if (!xboxProofFilename) return;
-  if (!file) {
-    xboxProofFilename.textContent = "Accepted: PNG, JPG, JPEG, WEBP";
-    if (xboxProofPreview) {
-      xboxProofPreview.hidden = true;
-      xboxProofPreview.removeAttribute("src");
-    }
-    return;
-  }
-
-  xboxProofFilename.textContent = `${file.name} | ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-  if (!xboxProofPreview || !file.type.startsWith("image/")) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    xboxProofPreview.src = String(reader.result || "");
-    xboxProofPreview.hidden = false;
-  };
-  reader.readAsDataURL(file);
 }
 
 function renderWorkshopDependency(dependency) {
@@ -419,27 +384,6 @@ workshopSearch?.addEventListener("keydown", (event) => {
 donationPointsInput?.addEventListener("input", syncDonationPreview);
 charitySearchInput?.addEventListener("input", filterCharityList);
 charityCauseFilter?.addEventListener("change", filterCharityList);
-xboxProofInput?.addEventListener("change", () => renderXboxProofPreview(xboxProofInput.files?.[0]));
-
-xboxProofDropzone?.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  xboxProofDropzone.classList.add("dragover");
-});
-
-xboxProofDropzone?.addEventListener("dragleave", () => {
-  xboxProofDropzone.classList.remove("dragover");
-});
-
-xboxProofDropzone?.addEventListener("drop", (event) => {
-  event.preventDefault();
-  xboxProofDropzone.classList.remove("dragover");
-  const file = event.dataTransfer?.files?.[0];
-  if (!file || !xboxProofInput) return;
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  xboxProofInput.files = transfer.files;
-  renderXboxProofPreview(file);
-});
 
 deadline?.addEventListener("change", calculateScore);
 lookupButton?.addEventListener("click", lookupReference);
@@ -461,10 +405,10 @@ form?.addEventListener("submit", (event) => {
       detail: "Choose at least one build system or workshop dependency before curation.",
     });
   }
-  if (!gameLinked) {
+  if (!steamLinked) {
     blockers.push({
-      title: "No gameplay account linked",
-      detail: "Link Steam or Xbox so Arma Reforger gameplay points can be verified.",
+      title: "Steam not connected",
+      detail: "Link Steam so Arma Reforger gameplay points can be verified.",
     });
   }
   if (accountPointBalance <= 0 || accountPointBalance < currentComplexityScore) {
@@ -528,4 +472,3 @@ roleSelect?.addEventListener("change", syncAccessCodeField);
 syncAccessCodeField();
 syncDonationPreview();
 filterCharityList();
-renderXboxProofPreview(xboxProofInput?.files?.[0]);

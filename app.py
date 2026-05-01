@@ -18,7 +18,6 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 REQUESTS_FILE = DATA_DIR / "requests.json"
 USERS_FILE = DATA_DIR / "users.json"
-XBOX_PROOF_UPLOAD_DIR = BASE_DIR / "static" / "uploads" / "xbox-proofs"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -412,16 +411,12 @@ ROLE_DASHBOARDS = {
     },
 }
 POINT_DONATION_RATE = 1.25
-POINT_CASH_RATE = 3.15
 POINTS_PER_HOUR = 3.4
 DEV_HOURLY_RATE = 85
 GAMEPLAY_POINT_RATE = 7.5
 ARMA_REFORGER_STEAM_APP_ID = 1874880
 STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
-XBOX_REFORGER_PLAYTIME_URL = os.environ.get("XBOX_REFORGER_PLAYTIME_URL", "").strip()
-XBOX_REFORGER_TITLE_ID = os.environ.get("XBOX_REFORGER_TITLE_ID", "").strip()
-XBOX_API_KEY = os.environ.get("XBOX_API_KEY", "").strip()
 GOFUNDME_CHARITY_SEARCH_URL = "https://www.gofundme.com/s?q="
 WORKSHOP_BASE_URL = "https://reforger.armaplatform.com/workshop"
 WORKSHOP_PAGE_SIZE = 16
@@ -670,7 +665,6 @@ def workshop_initial_pages():
 
 def ensure_storage():
     DATA_DIR.mkdir(exist_ok=True)
-    XBOX_PROOF_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     if not REQUESTS_FILE.exists():
         REQUESTS_FILE.write_text("[]", encoding="utf-8")
     if not USERS_FILE.exists():
@@ -717,16 +711,6 @@ def seed_test_accounts():
                 "steam_playtime_minutes": 0,
                 "steam_minutes_credited": 0,
                 "steam_last_sync": "",
-                "xbox_gamertag": "",
-                "xbox_xuid": "",
-                "xbox_playtime_minutes": 0,
-                "xbox_minutes_credited": 0,
-                "xbox_last_sync": "",
-                "xbox_avatar": "",
-                "xbox_access_token": "",
-                "xbox_refresh_token": "",
-                "xbox_token_expires_at": "",
-                "xbox_playtime_submissions": [],
                 "studio_time_entries": [],
             }
         )
@@ -768,16 +752,6 @@ def normalize_user(user):
     user.setdefault("steam_playtime_minutes", 0)
     user.setdefault("steam_minutes_credited", 0)
     user.setdefault("steam_last_sync", "")
-    user.setdefault("xbox_gamertag", "")
-    user.setdefault("xbox_xuid", "")
-    user.setdefault("xbox_playtime_minutes", 0)
-    user.setdefault("xbox_minutes_credited", 0)
-    user.setdefault("xbox_last_sync", "")
-    user.setdefault("xbox_avatar", "")
-    user.setdefault("xbox_access_token", "")
-    user.setdefault("xbox_refresh_token", "")
-    user.setdefault("xbox_token_expires_at", "")
-    user.setdefault("xbox_playtime_submissions", [])
     user.setdefault("studio_time_entries", [])
     existing_transaction_ids = {item.get("id") for item in user.get("point_transactions", [])}
     for credit in user.get("supported_server_sessions", []):
@@ -831,25 +805,13 @@ def save_users(users):
 
 
 def public_user(user):
-    hidden = {"password_hash", "xbox_access_token", "xbox_refresh_token"}
-    return {key: value for key, value in user.items() if key not in hidden}
+    return {key: value for key, value in user.items() if key != "password_hash"}
 
 
 def find_user(identifier):
     normalized = identifier.strip().lower()
     for user in load_users():
         if user.get("email", "").lower() == normalized or user.get("username", "").lower() == normalized:
-            return user
-    return None
-
-
-def find_user_by_xbox_identity(xuid="", gamertag=""):
-    normalized_xuid = (xuid or "").strip()
-    normalized_gamertag = (gamertag or "").strip().lower()
-    for user in load_users():
-        if normalized_xuid and user.get("xbox_xuid", "").strip() == normalized_xuid:
-            return user
-        if normalized_gamertag and user.get("xbox_gamertag", "").strip().lower() == normalized_gamertag:
             return user
     return None
 
@@ -883,38 +845,11 @@ def create_user(username, email, password, role="customer"):
         "steam_playtime_minutes": 0,
         "steam_minutes_credited": 0,
         "steam_last_sync": "",
-        "xbox_gamertag": "",
-        "xbox_xuid": "",
-        "xbox_playtime_minutes": 0,
-        "xbox_minutes_credited": 0,
-        "xbox_last_sync": "",
-        "xbox_avatar": "",
-        "xbox_access_token": "",
-        "xbox_refresh_token": "",
-        "xbox_token_expires_at": "",
-        "xbox_playtime_submissions": [],
         "studio_time_entries": [],
     }
     users.append(user)
     save_users(users)
     return user
-
-
-def user_has_linked_game_account(user):
-    return bool(user.get("steam_id") or user.get("xbox_gamertag") or user.get("xbox_xuid"))
-
-
-def linked_reforger_hours(user):
-    total_minutes = int(user.get("steam_playtime_minutes", 0) or 0) + int(user.get("xbox_playtime_minutes", 0) or 0)
-    return millipoints(total_minutes / 60)
-
-
-def safe_upload_filename(prefix, original_name):
-    original_name = original_name or "upload.png"
-    suffix = Path(original_name).suffix.lower()
-    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
-        suffix = ".png"
-    return f"{prefix}_{secrets.token_hex(8)}{suffix}"
 
 
 def access_code_allows(role, code):
@@ -961,43 +896,6 @@ def fetch_steam_reforger_minutes(steam_id):
     if not reforger:
         return 0
     return int(reforger.get("playtime_forever", 0))
-
-
-def extract_playtime_minutes(payload):
-    containers = [payload]
-    for key in ("data", "stats", "title", "game", "result"):
-        nested = payload.get(key)
-        if isinstance(nested, dict):
-            containers.append(nested)
-    for container in containers:
-        for key in ("playtime_minutes", "playTimeMinutes", "minutes", "total_minutes"):
-            value = container.get(key)
-            if value is None:
-                continue
-            if isinstance(value, str) and value.strip().replace(".", "", 1).isdigit():
-                return int(float(value))
-            if isinstance(value, (int, float)):
-                return int(value)
-    raise RuntimeError("Xbox playtime response did not include a usable playtime_minutes field.")
-
-
-def fetch_xbox_reforger_minutes(gamertag, xuid="", access_token=""):
-    if not XBOX_REFORGER_PLAYTIME_URL:
-        raise RuntimeError("XBOX_REFORGER_PLAYTIME_URL is not configured.")
-    params = {"gamertag": gamertag}
-    if xuid:
-        params["xuid"] = xuid
-    if XBOX_REFORGER_TITLE_ID:
-        params["title_id"] = XBOX_REFORGER_TITLE_ID
-    headers = dict(DISCORD_HEADERS)
-    if XBOX_API_KEY:
-        headers["X-API-Key"] = XBOX_API_KEY
-    if access_token:
-        headers["Authorization"] = f"Bearer {access_token}"
-    xbox_request = Request(f"{XBOX_REFORGER_PLAYTIME_URL}?{urlencode(params)}", headers=headers)
-    with urlopen(xbox_request, timeout=8) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-    return extract_playtime_minutes(payload)
 
 
 def sync_steam_gameplay_points(user_id):
@@ -1055,78 +953,10 @@ def sync_steam_gameplay_points(user_id):
     return updated_user, awarded
 
 
-def sync_xbox_gameplay_points(user_id):
-    users = load_users()
-    updated_user = None
-    awarded = 0
-    for saved in users:
-        if saved["id"] != user_id:
-            continue
-        if not saved.get("xbox_gamertag") and not saved.get("xbox_xuid"):
-            raise RuntimeError("Link an Xbox account before syncing Arma Reforger gameplay time.")
-        playtime_minutes = fetch_xbox_reforger_minutes(
-            saved.get("xbox_gamertag", ""),
-            saved.get("xbox_xuid", ""),
-            saved.get("xbox_access_token", ""),
-        )
-        credited_minutes = int(saved.get("xbox_minutes_credited", 0) or 0)
-        new_minutes = max(0, playtime_minutes - credited_minutes)
-        awarded = millipoints((new_minutes / 60) * GAMEPLAY_POINT_RATE)
-        saved["xbox_playtime_minutes"] = playtime_minutes
-        saved["xbox_minutes_credited"] = max(credited_minutes, playtime_minutes)
-        saved["xbox_last_sync"] = datetime.now(timezone.utc).isoformat()
-        if awarded > 0:
-            saved["account_points"] = millipoints(saved.get("account_points", 0) + awarded)
-            credit_id = f"xbox_{secrets.token_hex(5)}"
-            saved.setdefault("supported_server_sessions", []).append(
-                {
-                    "id": credit_id,
-                    "server_name": "Xbox Arma Reforger gameplay",
-                    "hours": millipoints(new_minutes / 60),
-                    "points": awarded,
-                    "note": "Xbox verified total Arma Reforger playtime delta",
-                    "source": "xbox",
-                    "recorded_at": saved["xbox_last_sync"],
-                    "status": "Verified",
-                }
-            )
-            saved.setdefault("point_transactions", []).insert(
-                0,
-                {
-                    "id": f"credit_{credit_id}",
-                    "type": "credit",
-                    "source": "xbox",
-                    "label": "Arma Reforger gameplay",
-                    "points": awarded,
-                    "hours": millipoints(new_minutes / 60),
-                    "reference": "",
-                    "note": "Xbox playtime synced into account points.",
-                    "created_at": saved["xbox_last_sync"],
-                    "balance_after": saved["account_points"],
-                },
-            )
-        updated_user = saved
-        break
-    if updated_user:
-        save_users(users)
-        if session.get("account", {}).get("id") == updated_user["id"]:
-            session["account"] = public_user(updated_user)
-    return updated_user, awarded
-
-
 def steam_sync_is_stale(user, minutes=30):
     if not user.get("steam_id"):
         return False
     last_sync = parse_iso(user.get("steam_last_sync"))
-    if not last_sync:
-        return True
-    return (datetime.now(timezone.utc) - last_sync).total_seconds() >= minutes * 60
-
-
-def xbox_sync_is_stale(user, minutes=30):
-    if not user.get("xbox_gamertag") and not user.get("xbox_xuid"):
-        return False
-    last_sync = parse_iso(user.get("xbox_last_sync"))
     if not last_sync:
         return True
     return (datetime.now(timezone.utc) - last_sync).total_seconds() >= minutes * 60
@@ -1289,7 +1119,7 @@ def estimate_hours(score):
 
 
 def point_cash_value(points):
-    return millipoints(points * POINT_CASH_RATE)
+    return millipoints(estimate_hours(points) * DEV_HOURLY_RATE)
 
 
 def advised_donation(score):
@@ -1573,9 +1403,6 @@ def client_portal_context(user, records, active_tab, error=""):
         "gameplay_point_rate": GAMEPLAY_POINT_RATE,
         "point_cash_rate": point_cash_value(1),
         "featured_charity_causes": sorted({item["cause"] for item in FEATURED_CHARITIES}),
-        "has_linked_game_account": user_has_linked_game_account(user),
-        "has_linked_xbox_account": bool(user.get("xbox_gamertag") or user.get("xbox_xuid")),
-        "linked_reforger_hours": linked_reforger_hours(user),
         "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
         "featured_charities": FEATURED_CHARITIES,
         "gofundme_search_url": GOFUNDME_CHARITY_SEARCH_URL,
@@ -1941,26 +1768,14 @@ def client_portal():
     active_tab = request.args.get("tab", "Overview")
     if active_tab not in CLIENT_TABS:
         active_tab = "Overview"
-    if active_tab in {"Overview", "Account", "New Build"}:
-        awarded_total = 0
-        if steam_sync_is_stale(user):
-            try:
-                synced_user, awarded = sync_steam_gameplay_points(user["id"])
-                if synced_user:
-                    user = public_user(synced_user)
-                awarded_total += awarded
-            except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError):
-                pass
-        if xbox_sync_is_stale(user):
-            try:
-                synced_user, awarded = sync_xbox_gameplay_points(user["id"])
-                if synced_user:
-                    user = public_user(synced_user)
-                awarded_total += awarded
-            except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError):
-                pass
-        if awarded_total > 0:
-            session["client_notice"] = f"Gameplay sync added {awarded_total} points from new Arma Reforger playtime."
+    if active_tab in {"Overview", "Account", "New Build"} and steam_sync_is_stale(user):
+        try:
+            synced_user, awarded = sync_steam_gameplay_points(user["id"])
+            user = public_user(synced_user)
+            if awarded > 0:
+                session["client_notice"] = f"Steam added {awarded} points from new Arma Reforger playtime."
+        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError):
+            pass
 
     return render_template("client.html", **client_portal_context(user, records, active_tab))
 
@@ -2076,103 +1891,206 @@ def steam_sync():
     return redirect(url_for("client_portal", tab="Account"))
 
 
-@app.get("/login/xbox")
-def xbox_login():
-    return render_template(
-        "login.html",
-        mode="login",
-        error="Xbox OAuth login is disabled for now. Create or log into a website account, then link your Xbox gamertag/XUID from the Account tab.",
-        next_url="",
-    ), 400
-
-
-@app.post("/xbox/link")
-def xbox_link():
+@app.post("/client/donate")
+def donate_points():
     user = current_user()
     if user.get("role") not in {"customer", "admin"}:
-        return redirect(url_for("login", next="/client?tab=Account"))
-    gamertag = request.form.get("xbox_gamertag", "").strip()
-    xuid = request.form.get("xbox_xuid", "").strip()
-    if not gamertag and not xuid:
-        session["client_notice"] = "Enter an Xbox gamertag or XUID to link the account."
-        return redirect(url_for("client_portal", tab="Account"))
+        return redirect(url_for("login", next="/client?tab=Donate"))
 
-    existing_link = find_user_by_xbox_identity(xuid, gamertag)
-    if existing_link and existing_link.get("id") != user.get("id"):
-        session["client_notice"] = "That Xbox account is already linked to another customer account."
-        return redirect(url_for("client_portal", tab="Account"))
-
-    users = load_users()
-    for saved in users:
-        if saved["id"] == user["id"]:
-            saved["xbox_gamertag"] = gamertag or saved.get("xbox_gamertag", "")
-            saved["xbox_xuid"] = xuid or saved.get("xbox_xuid", "")
-            saved["xbox_access_token"] = ""
-            saved["xbox_refresh_token"] = ""
-            saved["xbox_token_expires_at"] = ""
-            session["account"] = public_user(saved)
-            break
-    save_users(users)
-    session["client_notice"] = "Xbox account linked. Playtime sync requires the configured Xbox playtime API, or you can submit proof for review."
-    return redirect(url_for("client_portal", tab="Account"))
-
-
-@app.post("/xbox/playtime-proof")
-def xbox_playtime_proof():
-    user = current_user()
-    if user.get("role") not in {"customer", "admin"}:
-        return redirect(url_for("login", next="/client?tab=Account"))
-    if not (user.get("xbox_gamertag") or user.get("xbox_xuid")):
-        session["client_notice"] = "Link your Xbox account before submitting Xbox playtime proof."
-        return redirect(url_for("client_portal", tab="Account"))
+    charity_id = request.form.get("charity_id", "custom")
+    charity = next((item for item in FEATURED_CHARITIES if item["id"] == charity_id), None)
+    charity_name = request.form.get("custom_charity_name", "").strip()
+    charity_url = request.form.get("custom_charity_url", "").strip()
+    if charity:
+        charity_name = charity["name"]
+        charity_url = charity["url"]
+    if not charity_name:
+        session["client_notice"] = "Choose a nonprofit or enter a charity name."
+        return redirect(url_for("client_portal", tab="Donate"))
 
     try:
-        hours_claimed = millipoints(request.form.get("hours_claimed", 0))
+        points = millipoints(request.form.get("points", 0))
     except ValueError:
-        hours_claimed = 0
-    if hours_claimed <= 0:
-        session["client_notice"] = "Enter the Xbox hours shown in your screenshot before submitting."
-        return redirect(url_for("client_portal", tab="Account"))
-    if request.form.get("confirm_visibility") != "on":
-        session["client_notice"] = "Confirm that the screenshot clearly shows your gamertag and hours."
-        return redirect(url_for("client_portal", tab="Account"))
-
-    proof_image = request.files.get("proof_image")
-    if not proof_image or not proof_image.filename:
-        session["client_notice"] = "Upload a screenshot that clearly shows your gamertag and hours."
-        return redirect(url_for("client_portal", tab="Account"))
-
-    filename = safe_upload_filename(user.get("id", "xbox"), proof_image.filename)
-    ensure_storage()
-    target_path = XBOX_PROOF_UPLOAD_DIR / filename
-    proof_image.save(target_path)
-    image_url = url_for("static", filename=f"uploads/xbox-proofs/{filename}")
+        points = 0
+    if points <= 0:
+        session["client_notice"] = "Enter a point amount above zero."
+        return redirect(url_for("client_portal", tab="Donate"))
 
     users = load_users()
     for saved in users:
         if saved["id"] != user["id"]:
             continue
-        saved.setdefault("xbox_playtime_submissions", []).insert(
+        if saved.get("account_points", 0) < points:
+            session["client_notice"] = "Point balance is too low for that charity allocation."
+            break
+        donation_id = f"charity_{secrets.token_hex(5)}"
+        value = point_cash_value(points)
+        saved["account_points"] = millipoints(saved.get("account_points", 0) - points)
+        donation = {
+            "id": donation_id,
+            "charity_name": charity_name,
+            "charity_url": charity_url,
+            "points": points,
+            "estimated_value": value,
+            "status": "Submitted to Thunder Buddies processing",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "note": request.form.get("note", "").strip(),
+            "processed_by_admin": False,
+        }
+        saved.setdefault("charity_donations", []).insert(0, donation)
+        saved.setdefault("point_transactions", []).insert(
             0,
             {
-                "id": f"xproof_{secrets.token_hex(5)}",
-                "gamertag": saved.get("xbox_gamertag", "") or saved.get("xbox_xuid", "Xbox user"),
-                "hours_claimed": hours_claimed,
-                "image_url": image_url,
-                "note": request.form.get("note", "").strip(),
-                "status": "Pending manual review",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "id": f"debit_{donation_id}",
+                "type": "debit",
+                "source": "charity",
+                "label": f"Charity allocation: {charity_name}",
+                "points": points,
+                "hours": 0,
+                "reference": "",
+                "note": f"{charity_name} thanks you. Thunder Buddies will process this donation.",
+                "created_at": donation["created_at"],
+                "balance_after": saved["account_points"],
             },
         )
         session["account"] = public_user(saved)
+        session["client_notice"] = (
+            f"Donation submitted successfully. ${value:,.2f} allocated to {charity_name} "
+            f"from {points} points."
+        )
         break
     save_users(users)
-    session["client_notice"] = "Xbox play hours submitted for review. Make sure the screenshot clearly shows your gamertag and hours."
-    return redirect(url_for("client_portal", tab="Account"))
+    return redirect(url_for("client_portal", tab="Donate"))
 
 
-@app.post("/studio/freelance/claim/<reference>")
-def claim_freelance(reference):
+@app.get("/api/workshop")
+def api_workshop():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return jsonify({"error": "Login required"}), 401
+
+    try:
+        page = int(request.args.get("page", 1))
+    except ValueError:
+        page = 1
+    query = request.args.get("q", "").strip().lower()
+    if query:
+        mods = []
+        seen = set()
+        for scan_page in range(1, 13):
+            for mod in fetch_workshop_page(scan_page):
+                if mod["id"] in seen:
+                    continue
+                haystack = f"{mod.get('label', '')} {mod.get('author', '')} {mod.get('workshop_id', '')}".lower()
+                if query in haystack:
+                    seen.add(mod["id"])
+                    mods.append(mod)
+        return jsonify({"mods": mods[:96], "page": page, "next_page": None, "query": query})
+
+    mods = fetch_workshop_page(page)
+    return jsonify({"mods": mods, "page": page, "next_page": page + 1, "query": ""})
+
+
+@app.get("/logout")
+def logout():
+    session.pop("account", None)
+    session.pop("discord_user", None)
+    session.pop("admin_permissions_unlocked", None)
+    return redirect(url_for("home"))
+
+
+@app.get("/studio/login")
+def studio_login():
+    return redirect(url_for("login", next="/studio"))
+
+
+@app.post("/studio/login")
+def studio_login_post():
+    return redirect(url_for("login", next="/studio"))
+
+
+@app.get("/studio/logout")
+def studio_logout():
+    session.pop("account", None)
+    session.pop("admin_permissions_unlocked", None)
+    return redirect(url_for("home"))
+
+
+@app.get("/studio")
+def studio_dashboard():
+    account = current_user()
+    records = sort_records(load_requests())
+    users = load_users()
+    query = request.args.get("q", "").strip().lower()
+    active_tab = request.args.get("tab", "Command")
+    visible_tabs = studio_tabs_for_user(account)
+    if active_tab not in visible_tabs:
+        active_tab = "Command"
+    if active_tab == "Admin" and not admin_permissions_unlocked():
+        return redirect(url_for("admin_verify"))
+
+    if query:
+        records = [
+            record
+            for record in records
+            if query in record.get("reference", "").lower()
+            or query in record.get("project_name", "").lower()
+            or query in record.get("discord_name", "").lower()
+            or query in record.get("unit_name", "").lower()
+        ]
+
+    return render_template(
+        "studio.html",
+        records=records,
+        metrics=dashboard_metrics(records),
+        phases=PHASES,
+        priorities=PRIORITIES,
+        project_types=PROJECT_TYPES,
+        tabs=visible_tabs,
+        active_tab=active_tab,
+        query=query,
+        account=account,
+        users=[public_user(user) for user in users],
+        is_admin=account.get("role") == "admin",
+        admin_permissions_unlocked=admin_permissions_unlocked(),
+        roles=ROLES,
+        economy=economy_metrics(records, users),
+        role_counts=role_counts(users),
+        charity_queue=charity_admin_queue(users),
+        total_tracked_hours=total_tracked_hours,
+        staff_stats=staff_time_stats(records, account),
+        pool_records=[
+            record
+            for record in records
+            if record.get("pool_status") in {"auto_review", "freelance_pool", "claimed_freelance"}
+        ],
+    )
+
+
+@app.post("/studio/requests/<reference>/update")
+def studio_update_request(reference):
+    records = load_requests()
+    record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
+    if not record:
+        return render_template("not_found.html", reference=reference), 404
+
+    status_index = int(request.form.get("status_index", record.get("status_index", 0)))
+    record["status_index"] = max(0, min(status_index, len(PHASES) - 1))
+    record["priority"] = request.form.get("priority", record.get("priority", "Normal"))
+    record["project_type"] = request.form.get("project_type", record.get("project_type", "Client mod"))
+    record["assignee"] = request.form.get("assignee", "Unassigned").strip() or "Unassigned"
+    record["budget_state"] = request.form.get("budget_state", "Not quoted").strip() or "Not quoted"
+    record["client_visible_notes"] = request.form.get("client_visible_notes", "").strip()
+    record["studio_notes"] = request.form.get("studio_notes", "").strip()
+    record["notes"] = record["client_visible_notes"] or record.get("notes", "")
+    record["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+    save_requests(records)
+    return redirect(url_for("studio_dashboard", tab=request.form.get("return_tab", "Projects")))
+
+
+@app.post("/studio/requests/<reference>/claim")
+def studio_claim_request(reference):
     account = current_user()
     records = load_requests()
     record = next((item for item in records if item["reference"].upper() == reference.upper()), None)
@@ -2573,11 +2491,11 @@ def create_request():
     user = current_user()
     if user.get("role") == "customer" and user.get("suspended"):
         return render_template("login.html", mode="login", error="This client account is suspended and cannot create submissions.", next_url=""), 403
-    if user.get("role") == "customer" and not user_has_linked_game_account(user):
+    if user.get("role") == "customer" and not user.get("steam_id"):
         records_for_client = sort_records(records_for_user(records, user))
         return render_template(
             "client.html",
-            **client_portal_context(user, records_for_client, "Account", "Link a Steam or Xbox account before creating a submission."),
+            **client_portal_context(user, records_for_client, "Account", "Link your Steam account before creating a submission."),
         ), 403
     complexity = calculate_complexity(request.form)
     available_points = millipoints(user.get("account_points", 0))
@@ -2586,7 +2504,7 @@ def create_request():
         records_for_client = sort_records(records_for_user(records, user))
         message = (
             f"This request needs {required_points} account points. "
-            f"You currently have {available_points}. Sync Steam or Xbox Arma Reforger playtime to earn more."
+            f"You currently have {available_points}. Record supported Arma Reforger server time to earn more."
         )
         return render_template("client.html", **client_portal_context(user, records_for_client, "New Build", message)), 402
     reference = make_reference(records)
