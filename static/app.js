@@ -448,7 +448,12 @@ function closeModal(modal) {
 }
 
 modalButtons.forEach((button) => {
-  button.addEventListener("click", () => openModal(button.dataset.modal, button));
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    const currentModal = button.closest(".modal-backdrop.open");
+    if (currentModal) closeModal(currentModal);
+    openModal(button.dataset.modal, button);
+  });
 });
 
 closeButtons.forEach((button) => {

@@ -59,6 +59,11 @@
       {% if studio_lock %}
         <div class="studio-alert">
           {{ lock_message }}
+          <div class="locked-system-list compact-lock-list">
+            {% for system in locked_systems %}
+              <span>{{ system }}</span>
+            {% endfor %}
+          </div>
           {% if is_admin %}
             <button class="widget-button compact" type="button" data-modal="studioLockModal">Manage lock</button>
           {% endif %}
@@ -622,6 +627,10 @@
               System message
               <textarea name="message" placeholder="Explain what is paused and when the system will reopen">{{ studio_settings.message }}</textarea>
             </label>
+            <label class="wide">
+              Auto unlock time
+              <input name="unlock_at" type="datetime-local" value="{{ datetime_local_value(studio_settings.unlock_at) }}" />
+            </label>
             <div class="lock-check-grid">
               {% for key, label in [
                 ("limited_mode", "Enable limited studio mode"),
@@ -659,6 +668,38 @@
           <span class="label">System locked</span>
           <h2>Limited studio mode</h2>
           <p>{{ lock_message }}</p>
+          {% if studio_settings.unlock_at %}
+            <p class="pool-note">Auto unlock: {{ datetime_local_value(studio_settings.unlock_at) }} UTC</p>
+          {% endif %}
+          <div class="locked-system-list">
+            {% for system in locked_systems %}
+              <span>{{ system }}</span>
+            {% else %}
+              <span>Limited mode enabled</span>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    {% endif %}
+
+    {% if studio_lock and is_admin %}
+      <div class="modal-backdrop open" id="adminLockDisclaimerModal" aria-hidden="false">
+        <section class="site-modal widget-modal lock-summary-modal" role="dialog" aria-modal="true" aria-label="Admin lock disclaimer">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Admin notice</span>
+          <h2>Limited studio mode is active</h2>
+          <p>{{ lock_message }}</p>
+          {% if studio_settings.unlock_at %}
+            <p class="pool-note">Auto unlock: {{ datetime_local_value(studio_settings.unlock_at) }} UTC</p>
+          {% endif %}
+          <div class="locked-system-list">
+            {% for system in locked_systems %}
+              <span>{{ system }}</span>
+            {% else %}
+              <span>Limited mode enabled</span>
+            {% endfor %}
+          </div>
+          <button class="submit-button" type="button" data-modal="studioLockModal">Edit lock controls</button>
         </section>
       </div>
     {% endif %}

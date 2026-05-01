@@ -23,7 +23,11 @@
       </a>
       <nav aria-label="Client portal tabs">
         {% for tab in tabs %}
-          <a class="{{ 'active' if active_tab == tab else '' }}" href="{{ url_for('client_portal', tab=tab) }}">{{ tab }}</a>
+          {% if tab == "New Build" and studio_lock and (studio_settings.lock_all or studio_settings.disable_submissions) %}
+            <a class="locked-tab {{ 'active' if active_tab == tab else '' }}" href="#" data-modal="clientBuildLockedModal">{{ tab }}</a>
+          {% else %}
+            <a class="{{ 'active' if active_tab == tab else '' }}" href="{{ url_for('client_portal', tab=tab) }}">{{ tab }}</a>
+          {% endif %}
         {% endfor %}
       </nav>
       <div class="client-account-actions">
@@ -33,6 +37,15 @@
     </header>
 
     <main class="client-main">
+      {% if studio_lock %}
+        <div class="studio-alert lock-alert">
+          <strong>Limited studio mode active.</strong> {{ lock_message }}
+          {% if studio_settings.unlock_at %}
+            <span>Auto unlock: {{ datetime_local_value(studio_settings.unlock_at) }} UTC</span>
+          {% endif %}
+        </div>
+      {% endif %}
+
       <div class="client-ecosystem-notice">
         This ecosystem will expand into a roleplay mod and Conflict economy system across Arma Reforger, with Discord integration for partnered servers, communities, and studios.
       </div>
@@ -49,12 +62,6 @@
           <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours synced plus approved console proof</span>
         </div>
       </section>
-
-      {% if studio_lock %}
-        <div class="studio-alert">
-          {{ lock_message }}
-        </div>
-      {% endif %}
 
       {% if error %}
         <div class="studio-alert">{{ error }}</div>
@@ -124,7 +131,11 @@
         <section class="client-panel">
           <div class="studio-section-title">
             <h2>Your build requests</h2>
-            <a class="primary-link" href="{{ url_for('client_portal', tab='New Build') }}">New build</a>
+            {% if studio_lock and (studio_settings.lock_all or studio_settings.disable_submissions) %}
+              <a class="primary-link locked-tab" href="#" data-modal="clientBuildLockedModal">New build</a>
+            {% else %}
+              <a class="primary-link" href="{{ url_for('client_portal', tab='New Build') }}">New build</a>
+            {% endif %}
           </div>
           <div class="client-request-list">
             {% for record in records %}
@@ -164,6 +175,14 @@
       {% endif %}
 
       {% if active_tab == "New Build" %}
+        {% if studio_lock and (studio_settings.lock_all or studio_settings.disable_submissions) %}
+          <section class="client-panel locked-build-panel">
+            <span class="label">New build locked</span>
+            <h2>Limited studio mode</h2>
+            <p>{{ lock_message }}</p>
+            <button class="submit-button" type="button" data-modal="clientBuildLockedModal">View locked systems</button>
+          </section>
+        {% else %}
         <section class="workspace client-build-workspace">
           <div class="section-heading">
             <span class="label">New request</span>
@@ -316,6 +335,26 @@
             <a class="primary-link" href="{{ url_for('client_portal', tab='Account') }}">Open account</a>
             <button class="secondary-link" type="button" data-close-modal>Review build</button>
           </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="clientBuildLockedModal" aria-hidden="true">
+        <section class="site-modal widget-modal lock-summary-modal" role="dialog" aria-modal="true" aria-label="Build system locked">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Limited studio mode</span>
+          <h2>Build system locked</h2>
+          <p>{{ lock_message }}</p>
+          {% if studio_settings.unlock_at %}
+            <p class="pool-note">Auto unlock: {{ datetime_local_value(studio_settings.unlock_at) }} UTC</p>
+          {% endif %}
+          <div class="locked-system-list">
+            {% for system in locked_systems %}
+              <span>{{ system }}</span>
+            {% else %}
+              <span>Build submissions</span>
+            {% endfor %}
+          </div>
+          <p class="mini-score">Donations remain available during limited mode, but payment status may show as pending until the studio reopens.</p>
         </section>
       </div>
 
@@ -495,6 +534,7 @@
             <button class="widget-button compact" type="button" data-modal="pointLedgerModal">Open transactions</button>
           </article>
         </section>
+        {% endif %}
       {% endif %}
 
       {% if active_tab == "Console Verification" %}
@@ -600,16 +640,20 @@
           class="modal-backdrop donation-success-backdrop open"
           id="donationSuccessModal"
           aria-hidden="false"
-          data-auto-confetti="true"
+          {% if not donation_success.pending %}data-auto-confetti="true"{% endif %}
         >
           <section class="site-modal widget-modal donation-success-modal" role="dialog" aria-modal="true" aria-label="Donation success">
             <button class="modal-close" type="button" data-close-modal>Close</button>
             <div class="confetti-stage" aria-hidden="true"></div>
-            <span class="label">Donation submitted</span>
-            <h2>Successfully donated to {{ donation_success.charity_name }}</h2>
+            <span class="label">{{ "Payment pending" if donation_success.pending else "Donation submitted" }}</span>
+            <h2>{{ "Payment pending for" if donation_success.pending else "Successfully donated to" }} {{ donation_success.charity_name }}</h2>
             <p>
               ${{ donation_success.estimated_value }} was allocated from {{ donation_success.points }} points.
-              Thunder Buddies Studios will process the donation from the admin side.
+              {% if donation_success.pending %}
+                This transaction is pending because limited studio mode is active.
+              {% else %}
+                Thunder Buddies Studios will process the donation from the admin side.
+              {% endif %}
             </p>
             <button class="submit-button" type="button" data-close-modal>Nice</button>
           </section>

@@ -387,6 +387,7 @@ DEFAULT_STUDIO_SETTINGS = {
     "message": "",
     "updated_by": "",
     "updated_at": "",
+    "unlock_at": "",
     "lock_all": False,
     "pause_projects": False,
     "disable_submissions": False,
@@ -842,6 +843,30 @@ def load_studio_settings():
         settings = {}
     merged = dict(DEFAULT_STUDIO_SETTINGS)
     merged.update(settings)
+    unlock_at = parse_iso(merged.get("unlock_at", ""))
+    if unlock_at and datetime.now(timezone.utc) >= unlock_at:
+        merged.update(
+            {
+                "limited_mode": False,
+                "lock_all": False,
+                "pause_projects": False,
+                "disable_submissions": False,
+                "disable_timers": False,
+                "disable_freelance": False,
+                "disable_client_addons": False,
+                "disable_console_verification": False,
+                "hide_workshop_tools": False,
+                "bohemia_update_hold": False,
+                "owner_away": False,
+                "standby_only": False,
+                "reason": "",
+                "message": "",
+                "unlock_at": "",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": "Auto unlock",
+            }
+        )
+        save_studio_settings(merged)
     return merged
 
 
@@ -880,6 +905,33 @@ def lock_message(settings=None):
     reason = settings.get("reason") or "studio limited mode"
     detail = settings.get("message") or "Thunder Buddies Studios has paused this tool until the owner or admin team reopens it."
     return f"This system has been locked due to {reason}. {detail}"
+
+
+def locked_systems(settings=None):
+    settings = settings or load_studio_settings()
+    labels = {
+        "lock_all": "All site tools",
+        "pause_projects": "Project edits and task controls",
+        "disable_submissions": "Client build submissions",
+        "disable_timers": "Studio and project time clocks",
+        "disable_freelance": "Freelance pool claiming",
+        "disable_client_addons": "Client add-on requests",
+        "disable_console_verification": "Console verification submissions",
+        "hide_workshop_tools": "Workshop dependency tools",
+        "bohemia_update_hold": "Bohemia update hold",
+        "owner_away": "Owner-away stand-by mode",
+        "standby_only": "Project stand-by mode",
+    }
+    if settings.get("lock_all"):
+        return [labels["lock_all"]] + [label for key, label in labels.items() if key != "lock_all" and settings.get(key)]
+    return [label for key, label in labels.items() if settings.get(key)]
+
+
+def datetime_local_value(value):
+    parsed = parse_iso(value)
+    if not parsed:
+        return ""
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M")
 
 
 def console_verification_queue(users):
@@ -1516,6 +1568,8 @@ def client_portal_context(user, records, active_tab, error=""):
         "studio_settings": studio_settings,
         "studio_lock": studio_lock_active(),
         "lock_message": lock_message(studio_settings),
+        "locked_systems": locked_systems(studio_settings),
+        "datetime_local_value": datetime_local_value,
         "donation_success": session.pop("donation_success", None),
         "notice": session.pop("client_notice", ""),
         "error": error,
@@ -2114,6 +2168,8 @@ def donate_points():
     user = current_user()
     if user.get("role") not in {"customer", "admin"}:
         return redirect(url_for("login", next="/client?tab=Donate"))
+    lock_settings = studio_lock_active()
+    donation_pending = bool(lock_settings)
 
     charity_id = request.form.get("charity_id", "custom")
     charity = next((item for item in FEATURED_CHARITIES if item["id"] == charity_id), None)
@@ -2150,10 +2206,11 @@ def donate_points():
             "charity_url": charity_url,
             "points": points,
             "estimated_value": value,
-            "status": "Submitted to Thunder Buddies processing",
+            "status": "Payment pending during limited studio mode" if donation_pending else "Submitted to Thunder Buddies processing",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "note": request.form.get("note", "").strip(),
             "processed_by_admin": False,
+            "limited_mode_pending": donation_pending,
         }
         saved.setdefault("charity_donations", []).insert(0, donation)
         saved.setdefault("point_transactions", []).insert(
@@ -2162,24 +2219,34 @@ def donate_points():
                 "id": f"debit_{donation_id}",
                 "type": "debit",
                 "source": "charity",
-                "label": f"Charity allocation: {charity_name}",
+                "label": f"{'Pending charity allocation' if donation_pending else 'Charity allocation'}: {charity_name}",
                 "points": points,
                 "hours": 0,
                 "reference": "",
-                "note": f"{charity_name} thanks you. Thunder Buddies will process this donation.",
+                "note": (
+                    f"Payment pending due to limited studio mode. {charity_name} allocation is queued."
+                    if donation_pending
+                    else f"{charity_name} thanks you. Thunder Buddies will process this donation."
+                ),
                 "created_at": donation["created_at"],
                 "balance_after": saved["account_points"],
             },
         )
         session["account"] = public_user(saved)
-        session["client_notice"] = (
-            f"Donation submitted successfully. ${value:,.2f} allocated to {charity_name} "
-            f"from {points} points."
-        )
+        if donation_pending:
+            session["client_notice"] = (
+                f"Donation payment pending. ${value:,.2f} for {charity_name} is queued while limited studio mode is active."
+            )
+        else:
+            session["client_notice"] = (
+                f"Donation submitted successfully. ${value:,.2f} allocated to {charity_name} "
+                f"from {points} points."
+            )
         session["donation_success"] = {
             "charity_name": charity_name,
             "estimated_value": f"{value:,.2f}",
             "points": points,
+            "pending": donation_pending,
         }
         break
     save_users(users)
@@ -2288,6 +2355,8 @@ def studio_dashboard():
         studio_settings=studio_settings,
         studio_lock=studio_lock_active(),
         lock_message=lock_message(studio_settings),
+        locked_systems=locked_systems(studio_settings),
+        datetime_local_value=datetime_local_value,
         total_tracked_hours=total_tracked_hours,
         staff_stats=staff_time_stats(records, account),
         pool_records=[
@@ -2634,6 +2703,16 @@ def admin_update_studio_lock():
         settings["disable_console_verification"] = True
     settings["reason"] = request.form.get("reason", "").strip()
     settings["message"] = request.form.get("message", "").strip()
+    unlock_at = request.form.get("unlock_at", "").strip()
+    settings["unlock_at"] = ""
+    if unlock_at:
+        try:
+            parsed_unlock = datetime.fromisoformat(unlock_at)
+            if parsed_unlock.tzinfo is None:
+                parsed_unlock = parsed_unlock.replace(tzinfo=timezone.utc)
+            settings["unlock_at"] = parsed_unlock.astimezone(timezone.utc).isoformat()
+        except ValueError:
+            settings["unlock_at"] = ""
     settings["updated_by"] = current_user().get("username", "Admin")
     settings["updated_at"] = datetime.now(timezone.utc).isoformat()
     save_studio_settings(settings)
