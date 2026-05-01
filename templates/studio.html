@@ -54,6 +54,46 @@
       </header>
 
       {% if active_tab == "Command" %}
+        <section class="role-command-center">
+          <div class="role-hero">
+            <span class="label">{{ staff_stats.network_label }}</span>
+            <h2>{{ staff_stats.role_dashboard.headline }}</h2>
+            <p>{{ staff_stats.role_dashboard.summary }}</p>
+            <div class="role-action-row">
+              {% for action in staff_stats.role_dashboard.actions %}
+                <button class="secondary-link info-pop" type="button" data-modal="roleWidget{{ loop.index }}">{{ action }}</button>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="staff-stat-grid">
+            <article>
+              <span class="label">Studio clock</span>
+              <strong>{{ staff_stats.studio_hours }}</strong>
+              <p>Hours inside studio operations</p>
+            </article>
+            <article>
+              <span class="label">Project clock</span>
+              <strong>{{ staff_stats.project_hours }}</strong>
+              <p>Hours logged directly to projects</p>
+            </article>
+            <article>
+              <span class="label">Assigned work</span>
+              <strong>{{ staff_stats.assigned_count }}</strong>
+              <p>Projects claimed or assigned to you</p>
+            </article>
+            <article>
+              <span class="label">Tasks completed</span>
+              <strong>{{ staff_stats.completed_tasks }}</strong>
+              <p>Generated checklist items marked by you</p>
+            </article>
+          </div>
+          <div class="widget-button-grid">
+            <button class="widget-button" type="button" data-modal="studioClockModal">Studio clock</button>
+            <button class="widget-button" type="button" data-modal="assignmentModal">My assignments</button>
+            <button class="widget-button" type="button" data-modal="timeStatsModal">My stats</button>
+          </div>
+        </section>
+
         <section class="studio-metrics">
           <article>
             <span class="label">Total requests</span>
@@ -182,14 +222,25 @@
                 </label>
                 <button class="submit-button" type="submit">Save project</button>
               </form>
-              <div class="project-clock-row">
-                <form method="post" action="{{ url_for('start_project_timer', reference=record.reference) }}">
-                  <input name="note" placeholder="Clock note" />
-                  <button type="submit">Start clock</button>
-                </form>
-                <form method="post" action="{{ url_for('stop_project_timer', reference=record.reference) }}">
-                  <button type="submit">Stop my clock</button>
-                </form>
+              <div class="project-clock-row centered-actions">
+                <button class="widget-button compact" type="button" data-modal="projectClock{{ record.reference|replace('-', '') }}">Project clock</button>
+                <a class="widget-button compact" href="{{ url_for('request_detail', reference=record.reference) }}">Open dashboard</a>
+              </div>
+
+              <div class="modal-backdrop" id="projectClock{{ record.reference|replace('-', '') }}" aria-hidden="true">
+                <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="Project clock">
+                  <button class="modal-close" type="button" data-close-modal>Close</button>
+                  <span class="label">{{ record.reference }}</span>
+                  <h2>Clock project time</h2>
+                  <p>{{ record.project_name }}</p>
+                  <form method="post" action="{{ url_for('start_project_timer', reference=record.reference) }}">
+                    <input name="note" placeholder="Enfusion work, QA pass, asset setup" />
+                    <button class="submit-button" type="submit">Start project clock</button>
+                  </form>
+                  <form method="post" action="{{ url_for('stop_project_timer', reference=record.reference) }}">
+                    <button class="secondary-link" type="submit">Stop my project clock</button>
+                  </form>
+                </section>
               </div>
             </article>
           {% else %}
@@ -319,6 +370,11 @@
             <h2>{{ economy.average_eta }} days</h2>
             <p>Average estimated timeline across all tracked tickets.</p>
           </article>
+          <article>
+            <span class="label">Steam gameplay sync</span>
+            <h2>Verified point acquisition</h2>
+            <p>Set <code>STEAM_WEB_API_KEY</code> in Railway. Customers link Steam, then the site reads Arma Reforger app <code>1874880</code> playtime and converts new minutes into account points.</p>
+          </article>
         </section>
       {% endif %}
 
@@ -353,13 +409,34 @@
             <div class="admin-user-list">
               {% for user in users %}
                 <form class="admin-user-row" method="post" action="{{ url_for('admin_update_user_role', user_id=user.id) }}">
-                  <span>{{ user.username }}</span>
-                  <em>{{ user.email }}</em>
-                  <select name="role">
-                    {% for role in roles %}
-                      <option value="{{ role }}" {{ "selected" if role == user.role else "" }}>{{ role|title }}</option>
-                    {% endfor %}
-                  </select>
+                  <div>
+                    <span>{{ user.username }}</span>
+                    <em>{{ user.email }}</em>
+                  </div>
+                  <label>
+                    Role
+                    <select name="role">
+                      {% for role in roles %}
+                        <option value="{{ role }}" {{ "selected" if role == user.role else "" }}>{{ role|title }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <label>
+                    Studio
+                    <input name="studio_name" value="{{ user.studio_name or '' }}" placeholder="Partner studio or Thunder Buddies" />
+                  </label>
+                  <label>
+                    Points
+                    <input name="account_points" type="number" step="0.001" value="{{ user.account_points }}" />
+                  </label>
+                  <label class="inline-check">
+                    <input name="suspended" type="checkbox" {{ "checked" if user.suspended else "" }} />
+                    Suspend
+                  </label>
+                  <label>
+                    Suspension reason
+                    <input name="suspension_reason" value="{{ user.suspension_reason or '' }}" placeholder="Visible to the client on login" />
+                  </label>
                   <button type="submit">Update</button>
                 </form>
               {% else %}
@@ -377,7 +454,7 @@
                   <span>{{ count }} account{{ "" if count == 1 else "s" }}</span>
                   <p>
                     {% if role == "customer" %}
-                      Client portal access only.
+                      Client portal access, point balance, and account suspension controls.
                     {% elif role == "tester" %}
                       Studio visibility for QA and testing workflows.
                     {% elif role == "moderator" %}
@@ -392,8 +469,152 @@
               {% endfor %}
             </div>
           </article>
+          <article class="complexity-panel">
+            <span class="label">Studio network</span>
+            <h2>5 studios / 40 developers</h2>
+            <p>Thunder Buddies Studios leads the project intake, then partner studios and approved developers can be granted roles for development, QA, moderation, or admin oversight.</p>
+            <div class="module-summary">
+              <article>
+                <strong>Thunder Buddies Studios</strong>
+                <span>Primary owner</span>
+                <p>Controls intake standards, admin policy, account suspensions, and production point economy.</p>
+              </article>
+              <article>
+                <strong>Partner studios</strong>
+                <span>Approx. 5 studios</span>
+                <p>Use studio labels on accounts to separate production teams while staying in one dashboard.</p>
+              </article>
+              <article>
+                <strong>Developer network</strong>
+                <span>Approx. 40 developers</span>
+                <p>Developers, testers, and moderators can access work based on account role.</p>
+              </article>
+            </div>
+          </article>
         </section>
       {% endif %}
     </main>
+
+    {% if active_tab == "Command" %}
+      {% for action in staff_stats.role_dashboard.actions %}
+        <div class="modal-backdrop" id="roleWidget{{ loop.index }}" aria-hidden="true">
+          <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="{{ action }}">
+            <button class="modal-close" type="button" data-close-modal>Close</button>
+            <span class="label">{{ staff_stats.role_dashboard.title }}</span>
+            <h2>{{ action }}</h2>
+            <p>{{ staff_stats.role_dashboard.summary }}</p>
+            <div class="module-summary">
+              <article>
+                <strong>{{ staff_stats.studio_name }}</strong>
+                <span>{{ staff_stats.network_label }}</span>
+                <p>{{ "Thunder Buddies internal lane" if staff_stats.is_thunder_buddies else "Partner studio lane" }}</p>
+              </article>
+              <article>
+                <strong>{{ staff_stats.project_hours }} hrs</strong>
+                <span>Project time</span>
+                <p>Time clocked directly into project records.</p>
+              </article>
+              <article>
+                <strong>{{ staff_stats.assigned_count }}</strong>
+                <span>Assignments</span>
+                <p>Projects currently tied to your staff account.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      {% endfor %}
+
+      <div class="modal-backdrop" id="studioClockModal" aria-hidden="true">
+        <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="Studio clock">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">{{ staff_stats.network_label }}</span>
+          <h2>Studio clock</h2>
+          <p>Use this when you are doing studio operations that are not tied to a single project.</p>
+          {% if staff_stats.active_studio_timer %}
+            <p class="pool-note">Running: {{ staff_stats.active_studio_timer.mode }} | {{ staff_stats.active_studio_timer.note or "No note" }}</p>
+            <form method="post" action="{{ url_for('stop_studio_timer') }}">
+              <input type="hidden" name="return_tab" value="Command" />
+              <button class="submit-button" type="submit">Stop studio clock</button>
+            </form>
+          {% else %}
+            <form method="post" action="{{ url_for('start_studio_timer') }}">
+              <input type="hidden" name="return_tab" value="Command" />
+              <label>
+                Mode
+                <select name="mode">
+                  <option>Studio operations</option>
+                  <option>Client review</option>
+                  <option>QA coordination</option>
+                  <option>Developer support</option>
+                  <option>Admin oversight</option>
+                </select>
+              </label>
+              <label>
+                Note
+                <input name="note" placeholder="What are you working on?" />
+              </label>
+              <button class="submit-button" type="submit">Start studio clock</button>
+            </form>
+          {% endif %}
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="assignmentModal" aria-hidden="true">
+        <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="Assignments">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">My projects</span>
+          <h2>Assignments</h2>
+          <div class="client-request-list">
+            {% for record in staff_stats.assigned_records %}
+              <a class="client-request-row" href="{{ url_for('request_detail', reference=record.reference) }}">
+                <span>{{ record.reference }}</span>
+                <strong>{{ record.project_name }}</strong>
+                <em>{{ phases[record.status_index] }} | {{ record.score }} pts</em>
+              </a>
+            {% else %}
+              <p class="empty-state">No assigned projects yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="timeStatsModal" aria-hidden="true">
+        <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="Time stats">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">Personal stats</span>
+          <h2>Time and task log</h2>
+          <div class="module-summary">
+            <article>
+              <strong>{{ staff_stats.studio_hours }} hrs</strong>
+              <span>Studio operations</span>
+              <p>General studio time across moderation, admin, QA, support, and coordination.</p>
+            </article>
+            <article>
+              <strong>{{ staff_stats.project_hours }} hrs</strong>
+              <span>Project production</span>
+              <p>Time attached to individual build requests.</p>
+            </article>
+            <article>
+              <strong>{{ staff_stats.completed_tasks }}</strong>
+              <span>Checklist completions</span>
+              <p>Developer-visible task completions attributed to you.</p>
+            </article>
+          </div>
+          <div class="client-request-list">
+            {% for entry in staff_stats.project_entries %}
+              <div class="client-request-row">
+                <span>{{ entry.reference }}</span>
+                <strong>{{ entry.project_name }}</strong>
+                <em>{{ entry.note or "Project clock" }}</em>
+              </div>
+            {% else %}
+              <p class="empty-state">No project time logged yet.</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
   </body>
 </html>

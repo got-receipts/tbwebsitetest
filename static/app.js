@@ -12,6 +12,20 @@ const modalButtons = Array.from(document.querySelectorAll("[data-modal]"));
 const closeButtons = Array.from(document.querySelectorAll("[data-close-modal]"));
 const roleSelect = document.querySelector("#roleSelect");
 const accessCodeField = document.querySelector("#accessCodeField");
+const workshopGrid = document.querySelector("#workshopDependencyGrid");
+const workshopLoadMore = document.querySelector("#workshopLoadMore");
+const workshopSearch = document.querySelector("#workshopSearch");
+const workshopSearchButton = document.querySelector("#workshopSearchButton");
+const workshopStatus = document.querySelector("#workshopStatus");
+const pointBalanceNotice = document.querySelector("#pointBalanceNotice");
+const submitButton = form?.querySelector("button[type='submit']");
+const accountPointBalance = Number(form?.dataset.pointBalance || 0);
+const steamLinked = form?.dataset.steamLinked !== "false";
+const loadedWorkshopIds = new Set(
+  Array.from(document.querySelectorAll(".dependency-check input[type='checkbox']")).map((input) =>
+    input.name.replace(/^dep_/, "")
+  )
+);
 
 function tierFor(score) {
   if (score >= 170) return "Campaign grade";
@@ -91,7 +105,90 @@ function calculateScore() {
         ? `ETA: ${etaDays} days | auto review then freelance pool`
         : `ETA: ${etaDays} days`;
   }
+  if (pointBalanceNotice) {
+    if (!steamLinked) {
+      pointBalanceNotice.textContent = "Steam link required before submission";
+      pointBalanceNotice.classList.add("danger-text");
+      if (submitButton) submitButton.disabled = true;
+      meter.value = Math.min(score, Number(meter.max));
+      return;
+    }
+    const remaining = accountPointBalance - score;
+    if (remaining < 0) {
+      pointBalanceNotice.textContent = `Need ${Math.abs(remaining).toFixed(3)} more account points`;
+      pointBalanceNotice.classList.add("danger-text");
+      if (submitButton) submitButton.disabled = true;
+    } else {
+      pointBalanceNotice.textContent = `Balance after submit: ${remaining.toFixed(3)} points`;
+      pointBalanceNotice.classList.remove("danger-text");
+      if (submitButton) submitButton.disabled = false;
+    }
+  }
   meter.value = Math.min(score, Number(meter.max));
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderWorkshopDependency(dependency) {
+  const id = escapeHtml(dependency.id);
+  const label = escapeHtml(dependency.label);
+  const author = escapeHtml(dependency.author || "Workshop");
+  const points = Number(dependency.points || 8);
+  const rating = dependency.rating ? ` | ${Number(dependency.rating)}%` : "";
+  return `
+    <label class="dependency-check">
+      <input name="dep_${id}" type="checkbox" data-points="${points}" />
+      <input name="dep_${id}_label" type="hidden" value="${label}" />
+      <input name="dep_${id}_author" type="hidden" value="${author}" />
+      <input name="dep_${id}_points" type="hidden" value="${points}" />
+      <input name="dep_${id}_workshop_id" type="hidden" value="${escapeHtml(dependency.workshop_id || "")}" />
+      <input name="dep_${id}_source_url" type="hidden" value="${escapeHtml(dependency.source_url || "")}" />
+      <span>
+        <strong>${label}</strong>
+        <em>by ${author} | ${points} pts${rating}</em>
+      </span>
+      <textarea
+        class="reason-field"
+        name="dep_${id}_reason"
+        placeholder="Why is this dependency needed and how should it be used?"
+      ></textarea>
+    </label>
+  `;
+}
+
+async function loadWorkshopPage({ page, query = "" }) {
+  if (!workshopGrid || !workshopStatus) return;
+  const params = new URLSearchParams();
+  params.set("page", page || "1");
+  if (query) params.set("q", query);
+  workshopStatus.textContent = query ? "Searching workshop pages..." : `Loading workshop page ${page}...`;
+
+  const response = await fetch(`/api/workshop?${params.toString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    workshopStatus.textContent = payload.error || "Workshop load failed";
+    return;
+  }
+
+  let added = 0;
+  payload.mods.forEach((dependency) => {
+    if (!dependency.id || loadedWorkshopIds.has(dependency.id)) return;
+    loadedWorkshopIds.add(dependency.id);
+    workshopGrid.insertAdjacentHTML("beforeend", renderWorkshopDependency(dependency));
+    added += 1;
+  });
+
+  if (workshopLoadMore && payload.next_page) {
+    workshopLoadMore.dataset.nextPage = String(payload.next_page);
+  }
+  workshopStatus.textContent = `${loadedWorkshopIds.size} workshop mods loaded${added ? `, ${added} added` : ""}`;
+  calculateScore();
 }
 
 function renderProgress(record, phases) {
@@ -158,6 +255,29 @@ document.querySelectorAll(".option-check input, .dependency-check input").forEac
 
 document.querySelectorAll(".reason-field").forEach((field) => {
   field.addEventListener("input", calculateScore);
+});
+
+workshopGrid?.addEventListener("change", (event) => {
+  if (event.target.matches("input[type='checkbox']")) calculateScore();
+});
+
+workshopGrid?.addEventListener("input", (event) => {
+  if (event.target.matches(".reason-field")) calculateScore();
+});
+
+workshopLoadMore?.addEventListener("click", () => {
+  loadWorkshopPage({ page: workshopLoadMore.dataset.nextPage || "5" });
+});
+
+workshopSearchButton?.addEventListener("click", () => {
+  loadWorkshopPage({ page: 1, query: workshopSearch?.value.trim() || "" });
+});
+
+workshopSearch?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    loadWorkshopPage({ page: 1, query: workshopSearch.value.trim() });
+  }
 });
 
 deadline?.addEventListener("change", calculateScore);

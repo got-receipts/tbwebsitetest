@@ -37,14 +37,21 @@
         <div>
           <span class="label">Signed in as</span>
           <h1>{{ user.username }}</h1>
-          <p>Track builds, review progress, and submit new Arma Reforger mod requests.</p>
+          <p>Track builds, review progress, earn account points through supported Arma Reforger server time, and spend those points on submissions.</p>
         </div>
         <div class="client-reference-card">
-          <span class="label">Newest reference</span>
-          <strong>{{ records[0].reference if records else "No request yet" }}</strong>
-          <span>{{ records[0].project_name if records else "Create a request to generate one." }}</span>
+          <span class="label">Account points</span>
+          <strong>{{ user.account_points }}</strong>
+          <span>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam gameplay hours synced</span>
         </div>
       </section>
+
+      {% if error %}
+        <div class="studio-alert">{{ error }}</div>
+      {% endif %}
+      {% if notice %}
+        <div class="studio-alert">{{ notice }}</div>
+      {% endif %}
 
       {% if active_tab == "Overview" %}
         <section class="client-metrics">
@@ -63,6 +70,10 @@
           <article>
             <span class="label">Completed</span>
             <strong>{{ metrics.completed }}</strong>
+          </article>
+          <article>
+            <span class="label">Available points</span>
+            <strong>{{ user.account_points }}</strong>
           </article>
         </section>
 
@@ -147,9 +158,9 @@
           <div class="section-heading">
             <span class="label">New request</span>
             <h2>Start an Arma Reforger build</h2>
-            <p>Select the systems you need and describe the mod. The client portal will save the request to this account.</p>
+            <p>Select the systems you need and describe the mod. Steam-linked Arma Reforger gameplay points are required before submission.</p>
           </div>
-          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}">
+          <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_request') }}" data-point-balance="{{ user.account_points }}" data-steam-linked="{{ 'true' if user.steam_id else 'false' }}">
             <input type="hidden" name="destination" value="client" />
             <aside class="project-panel" aria-label="Project details">
               <label>
@@ -177,9 +188,13 @@
                 <strong id="complexityScore">0 pts</strong>
                 <span id="complexityTier">Recon</span>
                 <span id="timelineEstimate">ETA: 1 day</span>
+                <span id="pointBalanceNotice">Balance: {{ user.account_points }} points</span>
                 <meter id="complexityMeter" min="0" max="220" value="0"></meter>
               </div>
-              <button class="submit-button" type="submit">Submit to studio</button>
+              {% if not user.steam_id %}
+                <p class="pool-note">Steam account link required before creating a submission.</p>
+              {% endif %}
+              <button class="submit-button" type="submit" {{ "disabled" if not user.steam_id else "" }}>Submit to studio</button>
             </aside>
             <div class="question-list">
               <article class="builder-option-shell">
@@ -215,15 +230,26 @@
               <article class="builder-option-shell">
                 <div class="studio-section-title">
                   <h2>Workshop dependencies</h2>
-                  <span>Seeded from the current Reforger Workshop listing</span>
+                  <span>Live-paged from the public Reforger Workshop listing</span>
                 </div>
-                <div class="dependency-grid">
+                <div class="workshop-toolbar">
+                  <input id="workshopSearch" type="search" placeholder="Search loaded workshop mods or authors" />
+                  <button class="secondary-link" id="workshopSearchButton" type="button">Search</button>
+                  <button class="secondary-link" id="workshopLoadMore" type="button" data-next-page="{{ workshop_next_page }}">Load next page</button>
+                  <small id="workshopStatus">{{ workshop_dependencies|length }} workshop mods loaded</small>
+                </div>
+                <div class="dependency-grid" id="workshopDependencyGrid">
                   {% for dependency in workshop_dependencies %}
                     <label class="dependency-check">
                       <input name="dep_{{ dependency.id }}" type="checkbox" data-points="{{ dependency.points }}" />
+                      <input name="dep_{{ dependency.id }}_label" type="hidden" value="{{ dependency.label }}" />
+                      <input name="dep_{{ dependency.id }}_author" type="hidden" value="{{ dependency.author }}" />
+                      <input name="dep_{{ dependency.id }}_points" type="hidden" value="{{ dependency.points }}" />
+                      <input name="dep_{{ dependency.id }}_workshop_id" type="hidden" value="{{ dependency.workshop_id or '' }}" />
+                      <input name="dep_{{ dependency.id }}_source_url" type="hidden" value="{{ dependency.source_url or '' }}" />
                       <span>
                         <strong>{{ dependency.label }}</strong>
-                        <em>by {{ dependency.author }} | {{ dependency.points }} pts</em>
+                        <em>by {{ dependency.author }} | {{ dependency.points }} pts{% if dependency.rating %} | {{ dependency.rating }}%{% endif %}</em>
                       </span>
                       <textarea
                         class="reason-field"
@@ -271,9 +297,43 @@
             <p>{{ "Prototype login" if user.prototype else "Discord OAuth account" }}</p>
           </article>
           <article>
+            <span class="label">Steam account</span>
+            <h2>{{ user.steam_name or "Steam link required" }}</h2>
+            <p>Link Steam to verify total Arma Reforger gameplay time. Steam game details must be public for playtime sync.</p>
+            {% if user.steam_id %}
+              <p>SteamID64: {{ user.steam_id }}</p>
+              <p>Arma Reforger: {{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
+              <form method="post" action="{{ url_for('steam_sync') }}">
+                <button class="submit-button" type="submit">Sync Steam playtime</button>
+              </form>
+            {% else %}
+              <a class="submit-button" href="{{ url_for('steam_link') }}">Link Steam account</a>
+            {% endif %}
+          </article>
+          <article>
             <span class="label">Client privacy</span>
             <h2>Client-visible updates only</h2>
             <p>The client portal shows progress and client notes. Internal studio notes stay on the dev dashboard.</p>
+          </article>
+          <article>
+            <span class="label">Gameplay points</span>
+            <h2>{{ user.account_points }} points</h2>
+            <p>{{ gameplay_point_rate }} points are earned per verified Steam hour in Arma Reforger. New synced minutes become spendable account points.</p>
+          </article>
+          <article>
+            <span class="label">Recent point credits</span>
+            <h2>{{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} Steam hours</h2>
+            <div class="client-request-list">
+              {% for session_item in user.supported_server_sessions[-5:]|reverse %}
+                <div class="client-request-row">
+                  <span>{{ session_item.server_name }}</span>
+                  <strong>{{ session_item.hours }} hrs | {{ session_item.points }} pts</strong>
+                  <em>{{ session_item.status }} | {{ session_item.note or session_item.source }}</em>
+                </div>
+              {% else %}
+                <p class="empty-state">No Steam gameplay points synced yet.</p>
+              {% endfor %}
+            </div>
           </article>
           <article>
             <span class="label">Need help?</span>

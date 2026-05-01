@@ -1,7 +1,10 @@
 import json
 import os
+import re
 import secrets
+import time
 from datetime import datetime, timezone
+from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -291,7 +294,7 @@ BUILD_OPTION_GROUPS.extend(
     ]
 )
 
-WORKSHOP_DEPENDENCIES = [
+WORKSHOP_FALLBACK_DEPENDENCIES = [
     {"id": "where_am_i", "label": "Where Am I", "author": "ValterB", "points": 4},
     {"id": "project_redline_uh60", "label": "Project Redline - UH-60", "author": "Ralian", "points": 14},
     {"id": "better_hits_effects", "label": "BetterHitsEffects -ABANDONED-", "author": "Ashyl", "points": 8},
@@ -308,7 +311,56 @@ WORKSHOP_DEPENDENCIES = [
     {"id": "task_force_mattock_weapons", "label": "Task Force Mattock Weapons", "author": "TheAussieMerc", "points": 14},
     {"id": "m1_abrams", "label": "M1 Abrams", "author": "TheSpaceStrider", "points": 16},
     {"id": "m110_dmr", "label": "M110 DMR", "author": "ceo_of_bacon", "points": 10},
+    {"id": "barrett_m82", "label": "Barrett M82", "author": "ceo_of_bacon", "points": 10},
+    {"id": "game_master_fx", "label": "Game Master FX", "author": "ceo_of_bacon", "points": 8},
+    {"id": "sample_mod_modded_weapon", "label": "Sample Mod - Modded Weapon", "author": "Bohemia Interactive", "points": 6},
+    {"id": "bmp3_ifv", "label": "BMP-3 IFV", "author": "TheSpaceStrider", "points": 16},
+    {"id": "kunarprovince", "label": "KunarProvince", "author": "KIOK", "points": 18},
+    {"id": "better_explosives", "label": "BetterExplosives 2.0 Outdated", "author": "Ashyl", "points": 8},
+    {"id": "vergys_custom_clothing", "label": "Vergys Custom Clothing", "author": "Vergyy", "points": 12},
+    {"id": "sample_mod_new_weapon", "label": "Sample Mod - New Weapon", "author": "Bohemia Interactive", "points": 6},
+    {"id": "everon_life", "label": "Everon Life", "author": "Everon Life Team", "points": 18},
+    {"id": "shrapnel", "label": "Shrapnel 2.0", "author": "Ashyl", "points": 8},
+    {"id": "bacon_suppressors", "label": "Bacon Suppressors", "author": "ceo_of_bacon", "points": 8},
+    {"id": "rhib", "label": "RHIB", "author": "TheSpaceStrider", "points": 14},
+    {"id": "task_force_mattock_uniforms", "label": "Task Force Mattock Uniforms", "author": "TheAussieMerc", "points": 12},
+    {"id": "sample_mod_modded_car", "label": "Sample Mod - Modded Car", "author": "Bohemia Interactive", "points": 6},
+    {"id": "sample_mod_workbench_plugin", "label": "Sample Mod - Workbench Plugin", "author": "Bohemia Interactive", "points": 6},
+    {"id": "sample_mod_new_faction", "label": "Sample Mod - New Faction", "author": "Bohemia Interactive", "points": 6},
+    {"id": "sample_mod_modded_script", "label": "Sample Mod - Modded Script", "author": "Bohemia Interactive", "points": 6},
+    {"id": "zeliks_character", "label": "Zeliks Character", "author": "zelik", "points": 10},
+    {"id": "m249_scope_rails", "label": "M249 Scope Rails", "author": "ceo_of_bacon", "points": 8},
+    {"id": "better_sounds", "label": "BetterSounds 4.0 Alpha", "author": "Ashyl", "points": 10},
+    {"id": "sample_mod_new_prop", "label": "Sample Mod - New Prop", "author": "Bohemia Interactive", "points": 6},
+    {"id": "dark_raider_vehicle_pack", "label": "Dark Raider Vehicle Pack", "author": "TheSpaceStrider", "points": 16},
+    {"id": "game_master_enhanced", "label": "Game Master Enhanced", "author": "GME Mod Team", "points": 12},
+    {"id": "overthrow", "label": "Overthrow", "author": "Aaron Static", "points": 18},
+    {"id": "british_armed_forces_vehicles", "label": "British Armed Forces Vehicles", "author": "TheSpaceStrider", "points": 16},
+    {"id": "sample_mod_main_addon", "label": "Sample Mod - Main Addon", "author": "Bohemia Interactive", "points": 6},
+    {"id": "hmas_adelaide", "label": "HMAS Adelaide", "author": "TheSpaceStrider", "points": 16},
+    {"id": "m17_pistol", "label": "M17 Pistol", "author": "ceo_of_bacon", "points": 8},
+    {"id": "cs_forces", "label": "CS Forces", "author": "ViktorTroska", "points": 12},
+    {"id": "third_ranger_vehicle_pack", "label": "3rd Ranger Vehicle Pack", "author": "TheSpaceStrider", "points": 16},
+    {"id": "better_ammo", "label": "BetterAmmo", "author": "Ashyl", "points": 8},
+    {"id": "cz_scorpion_evo3_smg", "label": "CZ Scorpion EVO3 SMG", "author": "ceo_of_bacon", "points": 10},
+    {"id": "bon_action_animations", "label": "Bon Action Animations", "author": "TheBonBon", "points": 12},
+    {"id": "cougar_mrap", "label": "Cougar MRAP", "author": "TheSpaceStrider", "points": 16},
+    {"id": "dog_gear", "label": "dog_Gear", "author": "thedog88", "points": 12},
+    {"id": "sample_mod_new_character", "label": "Sample Mod - New Character", "author": "Bohemia Interactive", "points": 6},
+    {"id": "t72_main_battle_tank", "label": "T-72 Main Battle Tank", "author": "TheSpaceStrider", "points": 16},
+    {"id": "enfusion_database_framework", "label": "Enfusion Database Framework", "author": "Arkensor", "points": 12},
+    {"id": "hmmwv_variants", "label": "HmmwvVariants", "author": "KIOK", "points": 16},
+    {"id": "m270_mlrs", "label": "M270 MLRS", "author": "TheSpaceStrider", "points": 16},
+    {"id": "enfusion_persistence_framework", "label": "Enfusion Persistence Framework", "author": "Arkensor", "points": 12},
+    {"id": "zimnitrita", "label": "Zimnitrita", "author": "Casseburne", "points": 18},
+    {"id": "first_ranger_vehicle_pack", "label": "1st Ranger Vehicle Pack", "author": "TheSpaceStrider", "points": 16},
+    {"id": "zbk", "label": "ZBK", "author": "LaFrenchTouche", "points": 14},
+    {"id": "gm_persistent_loadouts", "label": "GM Persistent Loadouts", "author": "ceo_of_bacon", "points": 10},
+    {"id": "worthy_islands", "label": "Worthy Islands", "author": "Chewie_", "points": 18},
+    {"id": "spacecore", "label": "SpaceCore", "author": "TheSpaceStrider", "points": 12},
+    {"id": "tf_mattock_blufor_opfor", "label": "TF Mattock BLUFOR OPFOR", "author": "TheAussieMerc", "points": 14},
 ]
+WORKSHOP_DEPENDENCIES = WORKSHOP_FALLBACK_DEPENDENCIES[:64]
 
 PHASES = [
     "Request received",
@@ -326,8 +378,42 @@ STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Free
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Account"]
 ROLES = ["customer", "developer", "moderator", "tester", "admin"]
 STAFF_ROLES = {"developer", "moderator", "tester", "admin"}
+ROLE_DASHBOARDS = {
+    "admin": {
+        "title": "Admin Command",
+        "headline": "Full studio oversight",
+        "summary": "Control account access, partner studios, production economy, requests, staff time, and studio-wide operations.",
+        "actions": ["Permissions", "Production economy", "Suspensions", "Network health"],
+    },
+    "developer": {
+        "title": "Developer Console",
+        "headline": "Build work and time tracing",
+        "summary": "Clock into assigned projects, track Enfusion work, review dependencies, and claim eligible freelance pool items.",
+        "actions": ["Project clock", "Build notes", "Freelance pool", "Task checklist"],
+    },
+    "moderator": {
+        "title": "Moderator Desk",
+        "headline": "Queue and client safety",
+        "summary": "Review intake quality, watch client-facing updates, triage over-lane tickets, and help keep the request flow clean.",
+        "actions": ["Queue review", "Client notes", "Risk flags", "Pool review"],
+    },
+    "tester": {
+        "title": "QA Bench",
+        "headline": "Testing and release confidence",
+        "summary": "Focus on phase progress, checklist completion, multiplayer QA, console checks, and ready-for-review builds.",
+        "actions": ["QA checklist", "Phase map", "Console testing", "Release notes"],
+    },
+}
 POINT_DONATION_RATE = 1.25
 POINTS_PER_HOUR = 3.4
+GAMEPLAY_POINT_RATE = 7.5
+ARMA_REFORGER_STEAM_APP_ID = 1874880
+STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
+STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+WORKSHOP_BASE_URL = "https://reforger.armaplatform.com/workshop"
+WORKSHOP_PAGE_SIZE = 16
+WORKSHOP_CACHE_SECONDS = 60 * 20
+WORKSHOP_CACHE = {}
 TEST_ACCOUNTS = [
     {
         "username": "admin_test",
@@ -342,6 +428,113 @@ TEST_ACCOUNTS = [
         "role": "customer",
     },
 ]
+
+
+def safe_dependency_id(value):
+    value = (value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9_]+", "_", value)
+    value = re.sub(r"_+", "_", value).strip("_")
+    return value[:80] or f"workshop_{secrets.token_hex(4)}"
+
+
+def dependency_points(label, author="", size_text="", rating=0):
+    text = f"{label} {author}".lower()
+    points = 6
+    if any(term in text for term in ["framework", "persistence", "database", "core", "life", "overthrow"]):
+        points += 6
+    if any(term in text for term in ["vehicle", "tank", "ifv", "mrap", "apache", "uh-60", "rhib", "hmmwv", "mlrs"]):
+        points += 8
+    if any(term in text for term in ["weapon", "m82", "m110", "suppressor", "ammo", "scope", "rifle", "pistol", "smg"]):
+        points += 4
+    if any(term in text for term in ["terrain", "island", "province", "map", "anizay", "kunar"]):
+        points += 10
+    if "gb" in size_text.lower():
+        points += 6
+    if rating and rating < 85:
+        points += 2
+    return min(points, 22)
+
+
+def parse_workshop_listing(html):
+    mods = []
+    anchor_pattern = re.compile(r'<a[^>]+href="(?P<href>/workshop/[^"]+)"[^>]*>(?P<body>.*?)</a>', re.I | re.S)
+    for match in anchor_pattern.finditer(html):
+        body = re.sub(r"<[^>]+>", " ", match.group("body"))
+        text = " ".join(unescape(body).split())
+        if " by " not in text or "%" not in text:
+            continue
+        details = re.match(r"(?P<size>.+?)\s+(?P<rating>\d+)\s*%\s+(?P<label>.+?)\s+by\s+(?P<author>.+)$", text)
+        if not details:
+            continue
+        href = match.group("href")
+        raw_id = href.rstrip("/").split("/")[-1].split("-")[0]
+        label = details.group("label").strip()
+        author = details.group("author").strip()
+        rating = int(details.group("rating"))
+        size_text = details.group("size").strip()
+        mods.append(
+            {
+                "id": safe_dependency_id(raw_id or label),
+                "workshop_id": raw_id,
+                "label": label,
+                "author": author,
+                "points": dependency_points(label, author, size_text, rating),
+                "rating": rating,
+                "size": size_text,
+                "source_url": f"{WORKSHOP_BASE_URL}/{raw_id}",
+            }
+        )
+    return mods
+
+
+def fallback_workshop_page(page=1):
+    page = max(1, int(page or 1))
+    start = (page - 1) * WORKSHOP_PAGE_SIZE
+    end = start + WORKSHOP_PAGE_SIZE
+    return WORKSHOP_FALLBACK_DEPENDENCIES[start:end]
+
+
+def fetch_workshop_page(page=1):
+    page = max(1, min(int(page or 1), 2277))
+    cache_key = f"page:{page}"
+    cached = WORKSHOP_CACHE.get(cache_key)
+    if cached and time.time() - cached["created"] < WORKSHOP_CACHE_SECONDS:
+        return cached["mods"]
+
+    url = WORKSHOP_BASE_URL if page == 1 else f"{WORKSHOP_BASE_URL}?page={page}"
+    request = Request(url, headers=DISCORD_HEADERS)
+    try:
+        with urlopen(request, timeout=8) as response:
+            html = response.read().decode("utf-8", errors="replace")
+        mods = parse_workshop_listing(html)
+    except (HTTPError, URLError, TimeoutError, ValueError):
+        mods = []
+
+    if not mods:
+        mods = fallback_workshop_page(page)
+
+    WORKSHOP_CACHE[cache_key] = {"created": time.time(), "mods": mods}
+    return mods
+
+
+def workshop_dependencies_for_builder(pages=4):
+    pages = max(1, min(int(pages or 1), 12))
+    seen = set()
+    mods = []
+    for page in range(1, pages + 1):
+        for mod in fetch_workshop_page(page):
+            if mod["id"] in seen:
+                continue
+            seen.add(mod["id"])
+            mods.append(mod)
+    return mods
+
+
+def workshop_initial_pages():
+    try:
+        return max(1, min(int(os.environ.get("WORKSHOP_INITIAL_PAGES", 4)), 12))
+    except ValueError:
+        return 4
 
 
 def ensure_storage():
@@ -372,6 +565,18 @@ def seed_test_accounts():
                 "last_login": None,
                 "avatar": None,
                 "prototype": True,
+                "account_points": 500 if account["role"] == "admin" else 120,
+                "server_hours": 0,
+                "supported_server_sessions": [],
+                "suspended": False,
+                "suspension_reason": "",
+                "steam_id": "",
+                "steam_name": "",
+                "steam_avatar": "",
+                "steam_playtime_minutes": 0,
+                "steam_minutes_credited": 0,
+                "steam_last_sync": "",
+                "studio_time_entries": [],
             }
         )
         changed = True
@@ -394,9 +599,30 @@ def save_requests(records):
     REQUESTS_FILE.write_text(json.dumps(records, indent=2), encoding="utf-8")
 
 
+def normalize_user(user):
+    user.setdefault("account_points", 0)
+    user.setdefault("server_hours", 0)
+    user.setdefault("supported_server_sessions", [])
+    user.setdefault("point_spend_log", [])
+    user.setdefault("suspended", False)
+    user.setdefault("suspension_reason", "")
+    user.setdefault("studio_name", "Thunder Buddies Studios" if user.get("role") == "admin" else "")
+    user.setdefault("discord_id", "")
+    user.setdefault("reforger_player_id", "")
+    user.setdefault("steam_id", "")
+    user.setdefault("steam_name", "")
+    user.setdefault("steam_avatar", "")
+    user.setdefault("steam_playtime_minutes", 0)
+    user.setdefault("steam_minutes_credited", 0)
+    user.setdefault("steam_last_sync", "")
+    user.setdefault("studio_time_entries", [])
+    return user
+
+
 def load_users():
     ensure_storage()
-    return json.loads(USERS_FILE.read_text(encoding="utf-8"))
+    users = [normalize_user(user) for user in json.loads(USERS_FILE.read_text(encoding="utf-8"))]
+    return users
 
 
 def save_users(users):
@@ -428,6 +654,22 @@ def create_user(username, email, password, role="customer"):
         "last_login": None,
         "avatar": None,
         "prototype": False,
+        "account_points": 0,
+        "server_hours": 0,
+        "supported_server_sessions": [],
+        "point_spend_log": [],
+        "suspended": False,
+        "suspension_reason": "",
+        "studio_name": "",
+        "discord_id": "",
+        "reforger_player_id": "",
+        "steam_id": "",
+        "steam_name": "",
+        "steam_avatar": "",
+        "steam_playtime_minutes": 0,
+        "steam_minutes_credited": 0,
+        "steam_last_sync": "",
+        "studio_time_entries": [],
     }
     users.append(user)
     save_users(users)
@@ -443,6 +685,80 @@ def access_code_allows(role, code):
         return secrets.compare_digest(code or "", expected)
     fallback = "THUNDERADMIN" if role == "admin" else "THUNDERDEV"
     return secrets.compare_digest(code or "", fallback)
+
+
+def fetch_steam_profile(steam_id):
+    api_key = os.environ.get("STEAM_WEB_API_KEY", "")
+    if not api_key:
+        return {}
+    params = urlencode({"key": api_key, "steamids": steam_id})
+    request = Request(f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0001/?{params}", headers=DISCORD_HEADERS)
+    with urlopen(request, timeout=8) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    players = payload.get("response", {}).get("players", [])
+    return players[0] if players else {}
+
+
+def fetch_steam_reforger_minutes(steam_id):
+    api_key = os.environ.get("STEAM_WEB_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("STEAM_WEB_API_KEY is not configured.")
+    params = urlencode(
+        {
+            "key": api_key,
+            "steamid": steam_id,
+            "format": "json",
+            "include_played_free_games": 1,
+            "appids_filter[0]": ARMA_REFORGER_STEAM_APP_ID,
+        }
+    )
+    request = Request(f"{STEAM_OWNED_GAMES_URL}?{params}", headers=DISCORD_HEADERS)
+    with urlopen(request, timeout=8) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    games = payload.get("response", {}).get("games", [])
+    reforger = next((game for game in games if game.get("appid") == ARMA_REFORGER_STEAM_APP_ID), None)
+    if not reforger:
+        return 0
+    return int(reforger.get("playtime_forever", 0))
+
+
+def sync_steam_gameplay_points(user_id):
+    users = load_users()
+    updated_user = None
+    awarded = 0
+    for saved in users:
+        if saved["id"] != user_id:
+            continue
+        if not saved.get("steam_id"):
+            raise RuntimeError("Link Steam before syncing Arma Reforger gameplay time.")
+        playtime_minutes = fetch_steam_reforger_minutes(saved["steam_id"])
+        credited_minutes = int(saved.get("steam_minutes_credited", 0) or 0)
+        new_minutes = max(0, playtime_minutes - credited_minutes)
+        awarded = millipoints((new_minutes / 60) * GAMEPLAY_POINT_RATE)
+        saved["steam_playtime_minutes"] = playtime_minutes
+        saved["steam_minutes_credited"] = max(credited_minutes, playtime_minutes)
+        saved["steam_last_sync"] = datetime.now(timezone.utc).isoformat()
+        if awarded > 0:
+            saved["account_points"] = millipoints(saved.get("account_points", 0) + awarded)
+            saved.setdefault("supported_server_sessions", []).append(
+                {
+                    "id": f"steam_{secrets.token_hex(5)}",
+                    "server_name": "Steam Arma Reforger gameplay",
+                    "hours": millipoints(new_minutes / 60),
+                    "points": awarded,
+                    "note": "Steam verified total Arma Reforger playtime delta",
+                    "source": "steam",
+                    "recorded_at": saved["steam_last_sync"],
+                    "status": "Verified",
+                }
+            )
+        updated_user = saved
+        break
+    if updated_user:
+        save_users(users)
+        if session.get("account", {}).get("id") == updated_user["id"]:
+            session["account"] = public_user(updated_user)
+    return updated_user, awarded
 
 
 def normalize_record(record):
@@ -616,6 +932,69 @@ def total_tracked_hours(record):
     return millipoints(total_seconds / 3600)
 
 
+def total_entry_hours(entries):
+    total_seconds = 0
+    now = datetime.now(timezone.utc)
+    for entry in entries or []:
+        start = parse_iso(entry.get("start"))
+        end = parse_iso(entry.get("end")) or now
+        if start and end > start:
+            total_seconds += (end - start).total_seconds()
+    return millipoints(total_seconds / 3600)
+
+
+def staff_time_stats(records, user):
+    user_id = user.get("id")
+    username = user.get("username", "")
+    assigned_records = [
+        record
+        for record in records
+        if record.get("assignee", "").lower() == username.lower()
+        or record.get("claimed_by_id") == user_id
+    ]
+    project_entries = []
+    active_project_timers = []
+    for record in records:
+        for entry in record.get("time_entries", []):
+            if entry.get("user_id") != user_id:
+                continue
+            enriched = {**entry, "reference": record.get("reference"), "project_name": record.get("project_name")}
+            project_entries.append(enriched)
+            if not entry.get("end"):
+                active_project_timers.append(enriched)
+
+    studio_entries = user.get("studio_time_entries", [])
+    active_studio_timer = next((entry for entry in reversed(studio_entries) if not entry.get("end")), None)
+    completed_tasks = 0
+    visible_tasks = 0
+    for record in records:
+        for task in record.get("task_checklist", []):
+            if task.get("done_by") == username:
+                completed_tasks += 1
+            if task.get("client_visible", True):
+                visible_tasks += 1
+
+    role = user.get("role", "developer")
+    studio_name = user.get("studio_name") or "Thunder Buddies Studios"
+    is_tbs = "thunder" in studio_name.lower() and "budd" in studio_name.lower()
+    return {
+        "role_dashboard": ROLE_DASHBOARDS.get(role, ROLE_DASHBOARDS["developer"]),
+        "studio_name": studio_name,
+        "network_label": "Thunder Buddies Developer" if is_tbs else "Third-party Developer" if role == "developer" else f"{role.title()} Staff",
+        "is_thunder_buddies": is_tbs,
+        "assigned_count": len(assigned_records),
+        "assigned_records": assigned_records,
+        "project_hours": total_entry_hours(project_entries),
+        "studio_hours": total_entry_hours(studio_entries),
+        "active_project_timers": active_project_timers,
+        "active_studio_timer": active_studio_timer,
+        "completed_tasks": completed_tasks,
+        "visible_tasks": visible_tasks,
+        "project_entries": sorted(project_entries, key=lambda entry: entry.get("start", ""), reverse=True)[:8],
+        "studio_entries": sorted(studio_entries, key=lambda entry: entry.get("start", ""), reverse=True)[:8],
+    }
+
+
 def refresh_freelance_pool(records):
     now = datetime.now(timezone.utc)
     changed = False
@@ -761,6 +1140,26 @@ def client_metrics(records):
     }
 
 
+def client_portal_context(user, records, active_tab, error=""):
+    initial_pages = workshop_initial_pages()
+    return {
+        "user": user,
+        "records": records,
+        "metrics": client_metrics(records),
+        "phases": PHASES,
+        "modules": MODULES,
+        "build_option_groups": BUILD_OPTION_GROUPS,
+        "workshop_dependencies": workshop_dependencies_for_builder(initial_pages),
+        "workshop_next_page": initial_pages + 1,
+        "tabs": CLIENT_TABS,
+        "active_tab": active_tab,
+        "gameplay_point_rate": GAMEPLAY_POINT_RATE,
+        "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
+        "notice": session.pop("client_notice", ""),
+        "error": error,
+    }
+
+
 def calculate_complexity(form):
     score = 0
     selected = []
@@ -818,19 +1217,46 @@ def calculate_complexity(form):
                 }
             )
 
-    for dependency in WORKSHOP_DEPENDENCIES:
-        if form.get(f"dep_{dependency['id']}") != "on":
+    dependency_ids = sorted(
+        {
+            key[4:]
+            for key in form.keys()
+            if key.startswith("dep_")
+            and not key.endswith("_reason")
+            and not key.endswith("_label")
+            and not key.endswith("_author")
+            and not key.endswith("_points")
+            and not key.endswith("_workshop_id")
+            and not key.endswith("_source_url")
+        }
+    )
+    fallback_by_id = {dependency["id"]: dependency for dependency in WORKSHOP_FALLBACK_DEPENDENCIES}
+    for dependency_id in dependency_ids:
+        if form.get(f"dep_{dependency_id}") != "on":
             continue
-        reason = form.get(f"dep_{dependency['id']}_reason", "").strip()
+        fallback_dependency = fallback_by_id.get(dependency_id, {})
+        label = form.get(f"dep_{dependency_id}_label", fallback_dependency.get("label", "Workshop dependency")).strip()
+        author = form.get(f"dep_{dependency_id}_author", fallback_dependency.get("author", "Workshop")).strip()
+        workshop_id = form.get(f"dep_{dependency_id}_workshop_id", fallback_dependency.get("workshop_id", "")).strip()
+        source_url = form.get(f"dep_{dependency_id}_source_url", fallback_dependency.get("source_url", "")).strip()
+        try:
+            base_points = float(form.get(f"dep_{dependency_id}_points", fallback_dependency.get("points", 8)))
+        except (TypeError, ValueError):
+            base_points = 8
+        reason = form.get(f"dep_{dependency_id}_reason", "").strip()
         reason_points = reason_detail_score(reason, "dependency")
-        dependency_score = millipoints(dependency["points"] + reason_points)
-        eta_days = timeline_days(dependency["points"], reason_points, "dependency")
+        dependency_score = millipoints(base_points + reason_points)
+        eta_days = timeline_days(base_points, reason_points, "dependency")
         score += dependency_score
         selected_dependencies.append(
             {
-                **dependency,
+                "id": dependency_id,
+                "workshop_id": workshop_id,
+                "label": label,
+                "author": author,
+                "source_url": source_url,
                 "points": dependency_score,
-                "base_points": dependency["points"],
+                "base_points": base_points,
                 "reason_points": reason_points,
                 "reason": reason,
                 "eta_days": eta_days,
@@ -838,7 +1264,7 @@ def calculate_complexity(form):
         )
         timeline_summary.append(
             {
-                "label": dependency["label"],
+                "label": label,
                 "type": "Workshop dependency",
                 "eta_days": eta_days,
                 "points": dependency_score,
@@ -908,6 +1334,10 @@ def calculate_complexity(form):
 def current_user():
     account = session.get("account")
     if account:
+        for saved in load_users():
+            if saved.get("id") == account.get("id"):
+                session["account"] = public_user(saved)
+                return session["account"]
         return account
     return {
         "id": "guest",
@@ -942,6 +1372,23 @@ def admin_permissions_unlocked():
     return admin_unlocked() and session.get("admin_permissions_unlocked") is True
 
 
+def studio_tabs_for_user(user):
+    role = user.get("role")
+    studio_name = user.get("studio_name") or ""
+    is_tbs_developer = role == "developer" and "thunder" in studio_name.lower() and "budd" in studio_name.lower()
+    if role == "admin":
+        return STUDIO_TABS
+    if is_tbs_developer:
+        return ["Command", "Projects", "Pipeline", "Complexity", "Freelance Pool", "Settings"]
+    if role == "developer":
+        return ["Command", "Projects", "Freelance Pool", "Settings"]
+    if role == "moderator":
+        return ["Command", "Clients", "Pipeline", "Freelance Pool", "Settings"]
+    if role == "tester":
+        return ["Command", "Projects", "Pipeline", "Complexity", "Settings"]
+    return ["Command", "Settings"]
+
+
 def records_for_user(records, user):
     if user.get("role") == "admin":
         return records
@@ -963,6 +1410,19 @@ def protect_studio_routes():
     if studio_unlocked():
         return None
     return redirect(url_for("login", next=request.path))
+
+
+@app.before_request
+def protect_suspended_clients():
+    account = current_user()
+    if account.get("role") != "customer" or not account.get("suspended"):
+        return None
+    allowed = {"logout", "home", "legal", "static"}
+    if request.endpoint in allowed:
+        return None
+    if request.path.startswith("/static"):
+        return None
+    return render_template("login.html", mode="login", error=f"Account suspended: {account.get('suspension_reason') or 'Contact Thunder Buddies Studios.'}", next_url=""), 403
 
 
 @app.get("/")
@@ -1056,18 +1516,146 @@ def client_portal():
     if active_tab not in CLIENT_TABS:
         active_tab = "Overview"
 
-    return render_template(
-        "client.html",
-        user=user,
-        records=records,
-        metrics=client_metrics(records),
-        phases=PHASES,
-        modules=MODULES,
-        build_option_groups=BUILD_OPTION_GROUPS,
-        workshop_dependencies=WORKSHOP_DEPENDENCIES,
-        tabs=CLIENT_TABS,
-        active_tab=active_tab,
+    return render_template("client.html", **client_portal_context(user, records, active_tab))
+
+
+@app.post("/client/account")
+def update_client_account():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client"))
+
+    users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["reforger_player_id"] = request.form.get("reforger_player_id", "").strip()
+            session["account"] = public_user(saved)
+            break
+    save_users(users)
+    return redirect(url_for("client_portal", tab="Account"))
+
+
+@app.get("/steam/link")
+def steam_link():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Account"))
+
+    state = secrets.token_urlsafe(20)
+    session["steam_openid_state"] = state
+    return_to = url_for("steam_callback", _external=True, state=state)
+    params = urlencode(
+        {
+            "openid.ns": "http://specs.openid.net/auth/2.0",
+            "openid.mode": "checkid_setup",
+            "openid.return_to": return_to,
+            "openid.realm": request.url_root.rstrip("/"),
+            "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
+            "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
+        }
     )
+    return redirect(f"{STEAM_OPENID_URL}?{params}")
+
+
+@app.get("/steam/callback")
+def steam_callback():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Account"))
+    if request.args.get("state") != session.pop("steam_openid_state", None):
+        session["client_notice"] = "Steam link failed because the login state did not match."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    verification = dict(request.args)
+    verification["openid.mode"] = "check_authentication"
+    try:
+        verify_request = Request(
+            STEAM_OPENID_URL,
+            data=urlencode(verification).encode("utf-8"),
+            headers={"Content-Type": "application/x-www-form-urlencoded", **DISCORD_HEADERS},
+        )
+        with urlopen(verify_request, timeout=8) as response:
+            result = response.read().decode("utf-8", errors="replace")
+    except (HTTPError, URLError, TimeoutError):
+        session["client_notice"] = "Steam could not verify the account link. Try again in a moment."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    if "is_valid:true" not in result:
+        session["client_notice"] = "Steam rejected the account verification."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    claimed_id = request.args.get("openid.claimed_id", "")
+    match = re.search(r"/openid/id/(\d+)$", claimed_id)
+    if not match:
+        session["client_notice"] = "Steam did not return a usable SteamID64."
+        return redirect(url_for("client_portal", tab="Account"))
+
+    steam_id = match.group(1)
+    profile = {}
+    try:
+        profile = fetch_steam_profile(steam_id)
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError):
+        profile = {}
+
+    users = load_users()
+    for saved in users:
+        if saved["id"] == user["id"]:
+            saved["steam_id"] = steam_id
+            saved["steam_name"] = profile.get("personaname", "")
+            saved["steam_avatar"] = profile.get("avatarfull", "")
+            session["account"] = public_user(saved)
+            break
+    save_users(users)
+
+    try:
+        updated_user, awarded = sync_steam_gameplay_points(user["id"])
+        hours = millipoints((updated_user.get("steam_playtime_minutes", 0) or 0) / 60)
+        session["client_notice"] = f"Steam linked. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
+        session["client_notice"] = f"Steam linked, but playtime sync needs attention: {exc}"
+    return redirect(url_for("client_portal", tab="Account"))
+
+
+@app.post("/steam/sync")
+def steam_sync():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/client?tab=Account"))
+    try:
+        updated_user, awarded = sync_steam_gameplay_points(user["id"])
+        hours = millipoints((updated_user.get("steam_playtime_minutes", 0) or 0) / 60)
+        session["client_notice"] = f"Steam synced. Arma Reforger playtime: {hours} hours. Awarded {awarded} new points."
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
+        session["client_notice"] = f"Steam sync failed: {exc}"
+    return redirect(url_for("client_portal", tab="Account"))
+
+
+@app.get("/api/workshop")
+def api_workshop():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return jsonify({"error": "Login required"}), 401
+
+    try:
+        page = int(request.args.get("page", 1))
+    except ValueError:
+        page = 1
+    query = request.args.get("q", "").strip().lower()
+    if query:
+        mods = []
+        seen = set()
+        for scan_page in range(1, 13):
+            for mod in fetch_workshop_page(scan_page):
+                if mod["id"] in seen:
+                    continue
+                haystack = f"{mod.get('label', '')} {mod.get('author', '')} {mod.get('workshop_id', '')}".lower()
+                if query in haystack:
+                    seen.add(mod["id"])
+                    mods.append(mod)
+        return jsonify({"mods": mods[:96], "page": page, "next_page": None, "query": query})
+
+    mods = fetch_workshop_page(page)
+    return jsonify({"mods": mods, "page": page, "next_page": page + 1, "query": ""})
 
 
 @app.get("/logout")
@@ -1101,7 +1689,7 @@ def studio_dashboard():
     records = sort_records(load_requests())
     query = request.args.get("q", "").strip().lower()
     active_tab = request.args.get("tab", "Command")
-    visible_tabs = STUDIO_TABS if account.get("role") == "admin" else [tab for tab in STUDIO_TABS if tab != "Admin"]
+    visible_tabs = studio_tabs_for_user(account)
     if active_tab not in visible_tabs:
         active_tab = "Command"
     if active_tab == "Admin" and not admin_permissions_unlocked():
@@ -1135,6 +1723,7 @@ def studio_dashboard():
         economy=economy_metrics(records),
         role_counts=role_counts(load_users()),
         total_tracked_hours=total_tracked_hours,
+        staff_stats=staff_time_stats(records, account),
         pool_records=[
             record
             for record in records
@@ -1189,6 +1778,53 @@ def studio_claim_request(reference):
     record["last_updated"] = datetime.now(timezone.utc).isoformat()
     save_requests(records)
     return redirect(url_for("studio_dashboard", tab="Freelance Pool"))
+
+
+@app.post("/studio/timer/start")
+def start_studio_timer():
+    account = current_user()
+    if account.get("role") not in STAFF_ROLES:
+        return redirect(url_for("login", next="/studio"))
+
+    users = load_users()
+    for user in users:
+        if user["id"] != account["id"]:
+            continue
+        running = [entry for entry in user.setdefault("studio_time_entries", []) if not entry.get("end")]
+        if not running:
+            user["studio_time_entries"].append(
+                {
+                    "id": f"studio_time_{secrets.token_hex(5)}",
+                    "start": datetime.now(timezone.utc).isoformat(),
+                    "end": "",
+                    "note": request.form.get("note", "").strip(),
+                    "mode": request.form.get("mode", "Studio operations").strip() or "Studio operations",
+                }
+            )
+            session["account"] = public_user(user)
+        break
+    save_users(users)
+    return redirect(url_for("studio_dashboard", tab=request.form.get("return_tab", "Command")))
+
+
+@app.post("/studio/timer/stop")
+def stop_studio_timer():
+    account = current_user()
+    if account.get("role") not in STAFF_ROLES:
+        return redirect(url_for("login", next="/studio"))
+
+    users = load_users()
+    for user in users:
+        if user["id"] != account["id"]:
+            continue
+        for entry in reversed(user.setdefault("studio_time_entries", [])):
+            if not entry.get("end"):
+                entry["end"] = datetime.now(timezone.utc).isoformat()
+                break
+        session["account"] = public_user(user)
+        break
+    save_users(users)
+    return redirect(url_for("studio_dashboard", tab=request.form.get("return_tab", "Command")))
 
 
 @app.post("/requests/<reference>/tasks/<task_id>/toggle")
@@ -1315,6 +1951,13 @@ def admin_update_user_role(user_id):
     for user in users:
         if user["id"] == user_id:
             user["role"] = new_role
+            user["suspended"] = request.form.get("suspended") == "on"
+            user["suspension_reason"] = request.form.get("suspension_reason", "").strip()
+            user["studio_name"] = request.form.get("studio_name", "").strip()
+            try:
+                user["account_points"] = millipoints(request.form.get("account_points", user.get("account_points", 0)))
+            except ValueError:
+                user["account_points"] = millipoints(user.get("account_points", 0))
             break
     save_users(users)
     return redirect(url_for("studio_dashboard", tab="Admin"))
@@ -1369,10 +2012,12 @@ def discord_login():
         role="customer",
     )
     user["username"] = "Discord Prototype User"
+    user["discord_id"] = session["discord_user"]["id"]
     users = load_users()
     for saved in users:
         if saved["id"] == user["id"]:
             saved["username"] = user["username"]
+            saved["discord_id"] = user["discord_id"]
     save_users(users)
     login_user(user)
     return redirect(url_for("dashboard"))
@@ -1497,6 +2142,7 @@ def discord_callback():
         if saved["id"] == user["id"]:
             saved["username"] = display_name
             saved["avatar"] = discord_user.get("avatar")
+            saved["discord_id"] = discord_user["id"]
             user = saved
             break
     save_users(users)
@@ -1508,7 +2154,24 @@ def discord_callback():
 def create_request():
     records = load_requests()
     user = current_user()
+    if user.get("role") == "customer" and user.get("suspended"):
+        return render_template("login.html", mode="login", error="This client account is suspended and cannot create submissions.", next_url=""), 403
+    if user.get("role") == "customer" and not user.get("steam_id"):
+        records_for_client = sort_records(records_for_user(records, user))
+        return render_template(
+            "client.html",
+            **client_portal_context(user, records_for_client, "Account", "Link your Steam account before creating a submission."),
+        ), 403
     complexity = calculate_complexity(request.form)
+    available_points = millipoints(user.get("account_points", 0))
+    required_points = complexity["score"]
+    if user.get("role") == "customer" and available_points < required_points:
+        records_for_client = sort_records(records_for_user(records, user))
+        message = (
+            f"This request needs {required_points} account points. "
+            f"You currently have {available_points}. Record supported Arma Reforger server time to earn more."
+        )
+        return render_template("client.html", **client_portal_context(user, records_for_client, "New Build", message)), 402
     reference = make_reference(records)
     now = datetime.now(timezone.utc)
     eta_days = complexity["eta_days"]
@@ -1552,6 +2215,7 @@ def create_request():
         "eta_days": eta_days,
         "hours_estimate": complexity["hours_estimate"],
         "advised_donation": complexity["advised_donation"],
+        "points_spent": required_points if user.get("role") == "customer" else 0,
         "pool_status": pool_status,
         "auto_review_until": auto_review_until,
         "claimed_by": "",
@@ -1569,6 +2233,22 @@ def create_request():
     }
     records.append(record)
     save_requests(records)
+    if user.get("role") == "customer":
+        users = load_users()
+        for saved in users:
+            if saved["id"] == user["id"]:
+                saved["account_points"] = millipoints(saved.get("account_points", 0) - required_points)
+                saved.setdefault("point_spend_log", []).append(
+                    {
+                        "id": f"spend_{secrets.token_hex(5)}",
+                        "reference": reference,
+                        "points": required_points,
+                        "created_at": now.isoformat(),
+                    }
+                )
+                session["account"] = public_user(saved)
+                break
+        save_users(users)
     destination = request.form.get("destination", "detail")
     if destination == "client":
         return redirect(url_for("client_portal", tab="Requests"))

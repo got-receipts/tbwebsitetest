@@ -831,7 +831,7 @@ meter {
 .client-metrics {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   margin-bottom: 18px;
 }
 
@@ -914,6 +914,11 @@ meter {
   color: #bff8ef;
 }
 
+.danger-text {
+  color: #ff9f9f;
+  font-weight: 900;
+}
+
 .client-build-workspace {
   padding: 0;
 }
@@ -946,6 +951,24 @@ meter {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.workshop-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  margin-bottom: 14px;
+}
+
+.workshop-toolbar input {
+  min-height: 46px;
+}
+
+.workshop-toolbar small {
+  color: var(--muted);
+  font-weight: 800;
+  grid-column: 1 / -1;
 }
 
 .option-check,
@@ -1107,6 +1130,129 @@ meter {
 .studio-header h1 {
   font-size: clamp(2.4rem, 5vw, 5.4rem);
   margin-bottom: 0;
+}
+
+.role-command-center {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  margin: 0 auto 22px;
+  max-width: 1180px;
+  text-align: center;
+}
+
+.role-hero,
+.staff-stat-grid article,
+.widget-button-grid {
+  background: rgba(17, 24, 32, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.role-hero {
+  overflow: hidden;
+  padding: clamp(24px, 5vw, 46px);
+  position: relative;
+  width: 100%;
+}
+
+.role-hero::before {
+  background:
+    linear-gradient(90deg, transparent, rgba(71, 213, 195, 0.16), transparent),
+    radial-gradient(circle at center, rgba(246, 198, 91, 0.14), transparent 34rem);
+  content: "";
+  inset: 0;
+  opacity: 0.85;
+  position: absolute;
+}
+
+.role-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.role-hero h2 {
+  font-size: clamp(2.2rem, 5vw, 5.1rem);
+  margin: 8px auto 12px;
+  max-width: 900px;
+}
+
+.role-hero p {
+  color: #d8e4e4;
+  line-height: 1.7;
+  margin: 0 auto;
+  max-width: 760px;
+}
+
+.role-action-row,
+.widget-button-grid,
+.centered-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.role-action-row {
+  margin-top: 20px;
+}
+
+.staff-stat-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  width: 100%;
+}
+
+.staff-stat-grid article {
+  padding: 18px;
+}
+
+.staff-stat-grid strong {
+  color: var(--gold);
+  display: block;
+  font-size: 2.5rem;
+  margin: 8px 0;
+}
+
+.staff-stat-grid p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.widget-button-grid {
+  padding: 12px;
+  width: min(100%, 760px);
+}
+
+.widget-button {
+  background: rgba(71, 213, 195, 0.14);
+  border: 1px solid rgba(71, 213, 195, 0.34);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 12px 16px;
+}
+
+.widget-button.compact {
+  min-height: 38px;
+  padding: 10px 13px;
+}
+
+.widget-modal {
+  max-width: 760px;
+  text-align: center;
+}
+
+.widget-modal form {
+  margin-top: 12px;
 }
 
 .studio-search {
@@ -1487,7 +1633,7 @@ code {
   align-items: center;
   display: grid;
   gap: clamp(24px, 5vw, 70px);
-  grid-template-columns: minmax(0, 1.05fr) minmax(310px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
   overflow: hidden;
   padding: 120px clamp(20px, 6vw, 90px) 60px;
@@ -1516,8 +1662,7 @@ code {
   width: 56rem;
 }
 
-.home-hero-copy,
-.hero-console {
+.home-hero-copy {
   position: relative;
   z-index: 2;
 }
@@ -1574,79 +1719,6 @@ code {
   animation-delay: 1.4s;
   bottom: 18%;
   right: 31%;
-}
-
-.hero-console {
-  animation: panelRise 0.8s ease both;
-  background: rgba(13, 18, 23, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.5);
-  display: grid;
-  gap: 14px;
-  padding: clamp(18px, 4vw, 30px);
-}
-
-.console-header {
-  display: flex;
-  gap: 8px;
-}
-
-.console-header span {
-  background: var(--muted);
-  border-radius: 999px;
-  height: 10px;
-  width: 10px;
-}
-
-.hero-logo-frame {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.025)),
-    #050708;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 28px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 24px 70px rgba(0, 0, 0, 0.42);
-  margin: 4px 0 10px;
-  overflow: hidden;
-  padding: clamp(18px, 4vw, 34px);
-  position: relative;
-}
-
-.hero-logo-frame::after {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
-  content: "";
-  inset: 0;
-  position: absolute;
-  transform: translateX(-100%);
-  animation: logoSheen 5.5s ease-in-out infinite;
-}
-
-.hero-console img {
-  display: block;
-  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.45));
-  justify-self: center;
-  max-width: 360px;
-  position: relative;
-  width: 100%;
-  z-index: 1;
-}
-
-.console-line {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-}
-
-.console-line span {
-  color: var(--cyan);
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
 }
 
 .home-widgets,
@@ -2048,7 +2120,7 @@ code {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 1.3fr 150px 90px;
+  grid-template-columns: minmax(170px, 1fr) minmax(120px, 0.7fr) minmax(160px, 0.8fr) minmax(110px, 0.5fr) auto minmax(180px, 1fr) auto;
   padding: 12px;
 }
 
@@ -2070,6 +2142,25 @@ code {
   cursor: pointer;
   font-weight: 900;
   min-height: 40px;
+}
+
+.admin-user-row label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 5px;
+  text-transform: uppercase;
+}
+
+.inline-check {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.inline-check input {
+  width: auto;
 }
 
 @keyframes gridDrift {
@@ -2133,17 +2224,6 @@ code {
   }
 }
 
-@keyframes logoSheen {
-  0%,
-  58% {
-    transform: translateX(-110%);
-  }
-  78%,
-  100% {
-    transform: translateX(110%);
-  }
-}
-
 @media (max-width: 920px) {
   .topbar,
   nav {
@@ -2167,6 +2247,7 @@ code {
   .request-command,
   .request-dashboard-grid,
   .studio-metrics,
+  .staff-stat-grid,
   .home-hero,
   .home-widgets,
   .intel-strip,
@@ -2177,9 +2258,11 @@ code {
   .client-split,
   .client-hero-panel,
   .client-request-card,
+  .admin-user-row,
   .pipeline-grid,
   .client-grid,
   .complexity-dashboard,
+  .workshop-toolbar,
   .settings-grid {
     grid-template-columns: 1fr;
   }
