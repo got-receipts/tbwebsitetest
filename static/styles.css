@@ -2301,6 +2301,14 @@ code {
   margin-top: 10px;
 }
 
+.platform-avatar {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  height: 72px;
+  object-fit: cover;
+  width: 72px;
+}
+
 .admin-review-row {
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.1);

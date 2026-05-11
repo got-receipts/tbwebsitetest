@@ -31,6 +31,7 @@
         {% endfor %}
       </nav>
       <div class="client-account-actions">
+        <a class="quiet-link" href="{{ url_for('gta_dashboard') }}">GTA V Mods</a>
         <a class="discord-button" href="{{ url_for('dashboard') }}">Dashboard</a>
         <a class="quiet-link" href="{{ url_for('logout') }}">Logout</a>
       </div>
@@ -461,9 +462,16 @@
             <p>{{ "Prototype login" if user.prototype else "OAuth linked" }}</p>
           </article>
           <article>
-            <span class="label">Platform <span class="info-dot" title="Choose where you play Arma Reforger. Steam can link directly. Console accounts use verification tickets.">i</span></span>
+            <span class="label">Path + platform <span class="info-dot" title="Choose the studio lane and platform for this account. Steam links directly. Console accounts use profile capture and verification tickets.">i</span></span>
             <h2>{{ (user.preferred_platform or "steam")|title }}</h2>
             <form method="post" action="{{ url_for('update_client_platform') }}">
+              <label>
+                Studio path
+                <select name="selected_path">
+                  <option value="arma" {{ "selected" if (user.selected_path or "arma") == "arma" else "" }}>Arma Reforger</option>
+                  <option value="gta" {{ "selected" if user.selected_path == "gta" else "" }}>Grand Theft Auto V Mods</option>
+                </select>
+              </label>
               <label>
                 Platform
                 <select id="platformSelect" name="preferred_platform">
@@ -473,22 +481,29 @@
                 </select>
               </label>
               <div id="consolePlatformFields" class="console-platform-fields">
+                {% set selected_console = user.console_accounts.get(user.preferred_platform or 'steam', {}) or {} %}
+                {% if selected_console.avatar %}
+                  <img class="platform-avatar" src="{{ selected_console.avatar }}" alt="" />
+                {% endif %}
                 <label>
                   Account name / gamertag / PSN ID
-                  <input name="account_name" value="{{ (user.console_accounts.get(user.preferred_platform or 'steam', {}) or {}).get('account_name', '') }}" placeholder="Console account name" />
+                  <input name="account_name" value="{{ selected_console.get('account_name', '') }}" placeholder="Pulled from profile link when available" />
                 </label>
                 <label>
                   Tag or discriminator
-                  <input name="account_tag" value="{{ (user.console_accounts.get(user.preferred_platform or 'steam', {}) or {}).get('account_tag', '') }}" placeholder="#1234 or platform tag" />
+                  <input name="account_tag" value="{{ selected_console.get('account_tag', '') }}" placeholder="#1234 or platform tag" />
                 </label>
                 <label>
                   Public profile link
-                  <input name="profile_url" value="{{ (user.console_accounts.get(user.preferred_platform or 'steam', {}) or {}).get('profile_url', '') }}" placeholder="Optional profile URL" />
+                  <input class="console-profile-link" name="profile_url" value="{{ selected_console.get('profile_url', '') }}" placeholder="Required for Xbox / PlayStation" />
                 </label>
               </div>
               <button class="submit-button" type="submit">Save platform</button>
+              {% if not user.steam_id %}
+                <a class="secondary-link platform-steam-link" href="{{ url_for('steam_link') }}">Link Steam now</a>
+              {% endif %}
             </form>
-            <p class="mini-score">Steam uses direct linking. Xbox and PlayStation use console verification.</p>
+            <p class="mini-score">Steam must be linked directly. Xbox and PlayStation use the public profile link to save gamer tag and profile image.</p>
           </article>
           <article>
             <span class="label">Steam <span class="info-dot" title="Required to read Arma Reforger playtime.">i</span></span>
@@ -644,10 +659,17 @@
         <div class="modal-backdrop open" id="platformPromptModal" aria-hidden="false">
           <section class="site-modal widget-modal console-verification-modal" role="dialog" aria-modal="true" aria-label="Choose platform">
             <button class="modal-close" type="button" data-close-modal>Close</button>
-            <span class="label">Point bank setup</span>
-            <h2>Choose your Arma platform</h2>
-            <p>Select the platform you want your point bank labeled under. You can add more platforms later from Account settings.</p>
+            <span class="label">Entrance setup</span>
+            <h2>Choose your studio path</h2>
+            <p>Pick Arma Reforger or Grand Theft Auto V Mods, then choose the platform used for your point bank. Steam links directly; console accounts save a public profile for verification.</p>
             <form method="post" action="{{ url_for('update_client_platform') }}">
+              <label>
+                Studio path
+                <select name="selected_path">
+                  <option value="arma" {{ "selected" if (user.selected_path or "arma") == "arma" else "" }}>Arma Reforger</option>
+                  <option value="gta" {{ "selected" if user.selected_path == "gta" else "" }}>Grand Theft Auto V Mods</option>
+                </select>
+              </label>
               <label>
                 Primary platform
                 <select name="preferred_platform" id="platformPromptSelect">
@@ -667,10 +689,11 @@
                 </label>
                 <label>
                   Public profile link
-                  <input name="profile_url" placeholder="Optional profile URL" />
+                  <input class="console-profile-link" name="profile_url" placeholder="Required public profile URL" />
                 </label>
               </div>
-              <button class="submit-button" type="submit">Save point bank</button>
+              <button class="submit-button platform-save-button" type="submit">Save point bank</button>
+              <a class="secondary-link platform-steam-link" href="{{ url_for('steam_link') }}">Link Steam now</a>
             </form>
           </section>
         </div>

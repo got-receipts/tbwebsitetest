@@ -52,13 +52,34 @@
               </select>
             </label>
             <label>
-              Primary Arma Reforger platform
-              <select name="preferred_platform">
+              Studio path
+              <select name="selected_path" id="registerPathSelect">
+                <option value="arma">Arma Reforger</option>
+                <option value="gta">Grand Theft Auto V Mods</option>
+              </select>
+            </label>
+            <label>
+              Primary platform
+              <select name="preferred_platform" id="registerPlatformSelect">
                 <option value="steam">Steam</option>
                 <option value="xbox">Xbox</option>
                 <option value="playstation">PlayStation</option>
               </select>
             </label>
+            <div id="registerConsoleFields" class="console-platform-fields">
+              <label>
+                Account name / gamertag / PSN ID
+                <input name="account_name" placeholder="Console account name" />
+              </label>
+              <label>
+                Tag
+                <input name="account_tag" placeholder="#1234 or optional tag" />
+              </label>
+              <label>
+                Public profile link
+                <input class="console-profile-link" name="profile_url" placeholder="Required for Xbox / PlayStation" />
+              </label>
+            </div>
             <label id="accessCodeField">
               Developer/Admin access code
               <input name="access_code" type="password" placeholder="Required for staff roles" />

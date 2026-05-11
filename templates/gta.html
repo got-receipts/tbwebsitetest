@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GTA V Mods | Thunder Buddies Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body class="client-shell">
+    <header class="client-topbar">
+      <a class="brand" href="{{ url_for('home') }}">
+        <img class="nav-logo" src="{{ url_for('static', filename='thunderbuddies-logo.png') }}" alt="" />
+        <span>
+          <strong>Thunder Buddies Studios</strong>
+          <small>GTA V Mods</small>
+        </span>
+      </a>
+      <nav aria-label="GTA navigation">
+        <a class="active" href="{{ url_for('gta_dashboard') }}">GTA Dashboard</a>
+        <a href="{{ url_for('client_portal') }}">Arma Reforger</a>
+        <a href="{{ url_for('client_portal', tab='Donate') }}">Donate</a>
+      </nav>
+      <div class="client-account-actions">
+        <a class="discord-button" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="quiet-link" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </header>
+
+    <main class="client-main">
+      {% if notice %}
+        <div class="studio-alert">{{ notice }}</div>
+      {% endif %}
+
+      <section class="client-hero-panel">
+        <div>
+          <span class="label">Grand Theft Auto V Mods</span>
+          <h1>Custom creations checkout.</h1>
+          <p>Sync Steam Grand Theft Auto V playtime, convert eligible hours into one point bank, and use the checkout planner for GTA V mod and custom creation requests.</p>
+        </div>
+        <div class="client-reference-card">
+          <span class="label">{{ point_bank_label }}</span>
+          <strong>{{ user.account_points }}</strong>
+          <span>{{ gta_hours }} GTA V Steam hours synced</span>
+        </div>
+      </section>
+
+      <section class="client-metrics">
+        <article>
+          <span class="label">GTA V Steam app</span>
+          <strong>{{ gta_app_id }}</strong>
+          <p>Steam playtime source for checkout credit.</p>
+        </article>
+        <article>
+          <span class="label">GTA hours</span>
+          <strong>{{ gta_hours }}</strong>
+          <p>Synced from Steam profile ownership data.</p>
+        </article>
+        <article>
+          <span class="label">Checkout value</span>
+          <strong>${{ "%.2f"|format(checkout_value) }}</strong>
+          <p>Estimated value from synced GTA hours.</p>
+        </article>
+        <article>
+          <span class="label">Point rate</span>
+          <strong>{{ gameplay_point_rate }}</strong>
+          <p>Points per verified Steam hour.</p>
+        </article>
+        <article>
+          <span class="label">Steam</span>
+          <strong>{{ user.steam_name or "Not linked" }}</strong>
+          {% if user.steam_id %}
+            <form method="post" action="{{ url_for('steam_sync') }}">
+              <button class="widget-button compact" type="submit">Sync GTA hours</button>
+            </form>
+          {% else %}
+            <a class="widget-button compact" href="{{ url_for('steam_link') }}">Link Steam</a>
+          {% endif %}
+        </article>
+      </section>
+
+      <section class="settings-grid">
+        <article>
+          <span class="label">GTA creation lane</span>
+          <h2>Request planner</h2>
+          <p>Use this dashboard for GTA V custom creations, vehicle packs, clothing, environment edits, scripts, server assets, and other studio-reviewed work.</p>
+        </article>
+        <article>
+          <span class="label">Checkout</span>
+          <h2>Steam-hour backed</h2>
+          <p>Your Steam GTA V hours are credited into the same account point bank. Admin review still controls final production scope.</p>
+        </article>
+        <article>
+          <span class="label">One account</span>
+          <h2>Switch lanes</h2>
+          <p>You can still access the Arma Reforger studio lane from the top navigation without creating another account.</p>
+        </article>
+      </section>
+
+      {% if show_setup_prompt %}
+        <div class="modal-backdrop open" id="gtaSetupModal" aria-hidden="false">
+          <section class="site-modal widget-modal" role="dialog" aria-modal="true" aria-label="GTA setup">
+            <button class="modal-close" type="button" data-close-modal>Close</button>
+            <span class="label">Entrance setup</span>
+            <h2>Choose your platform</h2>
+            <p>Steam is required for automated GTA V playtime checkout. Console platforms can be saved for identity, but Steam must be linked before GTA hours can sync.</p>
+            <form method="post" action="{{ url_for('update_client_platform') }}">
+              <input type="hidden" name="selected_path" value="gta" />
+              <label>
+                Platform
+                <select name="preferred_platform" id="platformPromptSelect">
+                  <option value="steam">Steam</option>
+                  <option value="xbox">Xbox</option>
+                  <option value="playstation">PlayStation</option>
+                </select>
+              </label>
+              <div class="console-platform-fields" id="platformPromptConsoleFields">
+                <label>
+                  Account name / gamertag / PSN ID
+                  <input name="account_name" placeholder="Console account name" />
+                </label>
+                <label>
+                  Tag
+                  <input name="account_tag" placeholder="#1234 or optional tag" />
+                </label>
+                <label>
+                  Public profile link
+                  <input class="console-profile-link" name="profile_url" placeholder="Required for console identity" />
+                </label>
+              </div>
+              <button class="submit-button platform-save-button" type="submit">Continue to Steam link</button>
+              <a class="secondary-link platform-steam-link" href="{{ url_for('steam_link') }}">Link Steam now</a>
+            </form>
+          </section>
+        </div>
+      {% endif %}
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

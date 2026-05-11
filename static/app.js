@@ -31,6 +31,8 @@ const platformSelect = document.querySelector("#platformSelect");
 const consolePlatformFields = document.querySelector("#consolePlatformFields");
 const platformPromptSelect = document.querySelector("#platformPromptSelect");
 const platformPromptConsoleFields = document.querySelector("#platformPromptConsoleFields");
+const registerPlatformSelect = document.querySelector("#registerPlatformSelect");
+const registerConsoleFields = document.querySelector("#registerConsoleFields");
 const submitButton = form?.querySelector("button[type='submit']");
 const accountPointBalance = Number(form?.dataset.pointBalance || 0);
 const gameAccountLinked = form?.dataset.steamLinked !== "false";
@@ -485,13 +487,26 @@ filterCharityList();
 
 function syncPlatformFields(select = platformSelect, fields = consolePlatformFields) {
   if (!select || !fields) return;
-  fields.classList.toggle("muted-field", select.value === "steam");
+  const isSteam = select.value === "steam";
+  const form = select.closest("form");
+  fields.classList.toggle("muted-field", isSteam);
+  fields.querySelectorAll("input").forEach((input) => {
+    input.required = !isSteam && input.classList.contains("console-profile-link");
+  });
+  form?.querySelectorAll(".platform-steam-link").forEach((link) => {
+    link.hidden = !isSteam;
+  });
+  form?.querySelectorAll(".platform-save-button").forEach((button) => {
+    button.textContent = isSteam ? "Continue to Steam link" : "Save point bank";
+  });
 }
 
 platformSelect?.addEventListener("change", () => syncPlatformFields(platformSelect, consolePlatformFields));
 platformPromptSelect?.addEventListener("change", () => syncPlatformFields(platformPromptSelect, platformPromptConsoleFields));
+registerPlatformSelect?.addEventListener("change", () => syncPlatformFields(registerPlatformSelect, registerConsoleFields));
 syncPlatformFields();
 syncPlatformFields(platformPromptSelect, platformPromptConsoleFields);
+syncPlatformFields(registerPlatformSelect, registerConsoleFields);
 
 function launchConfetti(modal) {
   const stage = modal?.querySelector(".confetti-stage");

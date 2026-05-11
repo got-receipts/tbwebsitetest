@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
@@ -381,6 +381,7 @@ CLIENT_TABS = ["Overview", "Requests", "New Build", "Donate", "Account", "Consol
 ROLES = ["customer", "developer", "moderator", "tester", "staff", "admin"]
 STAFF_ROLES = {"developer", "moderator", "tester", "staff", "admin"}
 CONSOLE_PLATFORMS = ["steam", "xbox", "playstation"]
+CREATIVE_PATHS = ["arma", "gta"]
 DEFAULT_STUDIO_SETTINGS = {
     "limited_mode": False,
     "reason": "",
@@ -438,6 +439,7 @@ DEV_HOURLY_RATE = 85
 GAMEPLAY_POINT_RATE = 7.5
 ARMA_REFORGER_STEAM_APP_ID = 1874880
 ARMA_REFORGER_TOOLS_STEAM_APP_ID = 1874910
+GRAND_THEFT_AUTO_V_STEAM_APP_ID = 271590
 STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
 GOFUNDME_CHARITY_SEARCH_URL = "https://www.gofundme.com/s?q="
@@ -738,9 +740,13 @@ def seed_test_accounts():
                 "steam_minutes_credited": 0,
                 "steam_tools_playtime_minutes": 0,
                 "steam_tools_minutes_credited": 0,
+                "gta_steam_playtime_minutes": 0,
+                "gta_minutes_credited": 0,
                 "steam_last_sync": "",
                 "preferred_platform": "steam",
                 "platform_prompted": True,
+                "selected_path": "arma",
+                "setup_completed": True,
                 "console_accounts": {},
                 "console_verifications": [],
                 "studio_time_entries": [],
@@ -785,9 +791,13 @@ def normalize_user(user):
     user.setdefault("steam_minutes_credited", 0)
     user.setdefault("steam_tools_playtime_minutes", 0)
     user.setdefault("steam_tools_minutes_credited", 0)
+    user.setdefault("gta_steam_playtime_minutes", 0)
+    user.setdefault("gta_minutes_credited", 0)
     user.setdefault("steam_last_sync", "")
     user.setdefault("preferred_platform", "steam")
     user.setdefault("platform_prompted", False)
+    user.setdefault("selected_path", "arma")
+    user.setdefault("setup_completed", False)
     user.setdefault("console_accounts", {})
     user.setdefault("console_verifications", [])
     user.setdefault("studio_time_entries", [])
@@ -840,6 +850,23 @@ def load_users():
 def save_users(users):
     ensure_storage()
     USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
+
+
+def set_user_path(user_id, selected_path):
+    if selected_path not in CREATIVE_PATHS:
+        return current_user()
+    users = load_users()
+    updated = None
+    for saved in users:
+        if saved["id"] == user_id:
+            saved["selected_path"] = selected_path
+            updated = saved
+            break
+    if updated:
+        save_users(users)
+        session["account"] = public_user(updated)
+        return public_user(updated)
+    return current_user()
 
 
 def load_studio_settings():
@@ -971,6 +998,49 @@ def safe_upload_filename(prefix, original_name):
     return f"{safe_prefix}_{secrets.token_hex(8)}{suffix}"
 
 
+def clean_profile_title(title):
+    title = unescape(title or "").strip()
+    title = re.sub(r"\s+", " ", title)
+    title = re.sub(r"\s*[\-|•]\s*(Xbox|Xbox Profile|PlayStation|PSN|Official PlayStation).*?$", "", title, flags=re.I)
+    return title.strip()
+
+
+def first_meta_content(html, patterns):
+    for pattern in patterns:
+        match = re.search(pattern, html, flags=re.I | re.S)
+        if match:
+            return unescape(match.group(1)).strip()
+    return ""
+
+
+def fetch_public_platform_profile(profile_url):
+    profile_url = (profile_url or "").strip()
+    parsed = urlparse(profile_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Enter a valid public profile URL.")
+
+    profile_request = Request(profile_url, headers={**DISCORD_HEADERS, "Accept": "text/html,application/xhtml+xml"})
+    with urlopen(profile_request, timeout=8) as response:
+        html = response.read(350000).decode("utf-8", errors="replace")
+
+    title = first_meta_content(
+        html,
+        [
+            r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+name=["\']twitter:title["\'][^>]+content=["\']([^"\']+)["\']',
+            r"<title[^>]*>(.*?)</title>",
+        ],
+    )
+    image = first_meta_content(
+        html,
+        [
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
+        ],
+    )
+    return {"account_name": clean_profile_title(title), "avatar": image, "profile_url": profile_url}
+
+
 def public_user(user):
     return {key: value for key, value in user.items() if key != "password_hash"}
 
@@ -1013,9 +1083,13 @@ def create_user(username, email, password, role="customer"):
         "steam_minutes_credited": 0,
         "steam_tools_playtime_minutes": 0,
         "steam_tools_minutes_credited": 0,
+        "gta_steam_playtime_minutes": 0,
+        "gta_minutes_credited": 0,
         "steam_last_sync": "",
         "preferred_platform": "steam",
         "platform_prompted": False,
+        "selected_path": "arma",
+        "setup_completed": False,
         "console_accounts": {},
         "console_verifications": [],
         "studio_time_entries": [],
@@ -1079,6 +1153,10 @@ def fetch_steam_tools_minutes(steam_id):
     return fetch_steam_app_minutes(steam_id, ARMA_REFORGER_TOOLS_STEAM_APP_ID)
 
 
+def fetch_steam_gta_minutes(steam_id):
+    return fetch_steam_app_minutes(steam_id, GRAND_THEFT_AUTO_V_STEAM_APP_ID)
+
+
 def sync_steam_gameplay_points(user_id):
     users = load_users()
     updated_user = None
@@ -1090,15 +1168,20 @@ def sync_steam_gameplay_points(user_id):
             raise RuntimeError("Link Steam before syncing Arma Reforger gameplay time.")
         playtime_minutes = fetch_steam_reforger_minutes(saved["steam_id"])
         tools_minutes = fetch_steam_tools_minutes(saved["steam_id"])
+        gta_minutes = fetch_steam_gta_minutes(saved["steam_id"]) if saved.get("selected_path") == "gta" else int(saved.get("gta_steam_playtime_minutes", 0) or 0)
         credited_minutes = int(saved.get("steam_minutes_credited", 0) or 0)
         tools_credited_minutes = int(saved.get("steam_tools_minutes_credited", 0) or 0)
+        gta_credited_minutes = int(saved.get("gta_minutes_credited", 0) or 0)
         new_minutes = max(0, playtime_minutes - credited_minutes)
         new_tools_minutes = max(0, tools_minutes - tools_credited_minutes)
-        awarded = millipoints(((new_minutes + new_tools_minutes) / 60) * GAMEPLAY_POINT_RATE)
+        new_gta_minutes = max(0, gta_minutes - gta_credited_minutes) if saved.get("selected_path") == "gta" else 0
+        awarded = millipoints(((new_minutes + new_tools_minutes + new_gta_minutes) / 60) * GAMEPLAY_POINT_RATE)
         saved["steam_playtime_minutes"] = playtime_minutes
         saved["steam_tools_playtime_minutes"] = tools_minutes
+        saved["gta_steam_playtime_minutes"] = gta_minutes
         saved["steam_minutes_credited"] = max(credited_minutes, playtime_minutes)
         saved["steam_tools_minutes_credited"] = max(tools_credited_minutes, tools_minutes)
+        saved["gta_minutes_credited"] = max(gta_credited_minutes, gta_minutes)
         saved["steam_last_sync"] = datetime.now(timezone.utc).isoformat()
         if awarded > 0:
             saved["account_points"] = millipoints(saved.get("account_points", 0) + awarded)
@@ -1106,10 +1189,10 @@ def sync_steam_gameplay_points(user_id):
             saved.setdefault("supported_server_sessions", []).append(
                 {
                     "id": credit_id,
-                    "server_name": "Steam Arma Reforger + Tools",
-                    "hours": millipoints((new_minutes + new_tools_minutes) / 60),
+                    "server_name": "Steam verified game/tool hours",
+                    "hours": millipoints((new_minutes + new_tools_minutes + new_gta_minutes) / 60),
                     "points": awarded,
-                    "note": "Steam verified Arma Reforger and Arma Reforger Tools playtime delta",
+                    "note": "Steam verified Arma Reforger, Reforger Tools, and eligible GTA V playtime delta",
                     "source": "steam",
                     "recorded_at": saved["steam_last_sync"],
                     "status": "Verified",
@@ -1121,11 +1204,11 @@ def sync_steam_gameplay_points(user_id):
                     "id": f"credit_{credit_id}",
                     "type": "credit",
                     "source": "steam",
-                    "label": "Arma Reforger gameplay and tools",
+                    "label": "Steam gameplay and tools",
                     "points": awarded,
-                    "hours": millipoints((new_minutes + new_tools_minutes) / 60),
+                    "hours": millipoints((new_minutes + new_tools_minutes + new_gta_minutes) / 60),
                     "reference": "",
-                    "note": "Steam playtime and tools time synced into one point bank.",
+                    "note": "Steam playtime, tools time, and eligible GTA V time synced into one point bank.",
                     "created_at": saved["steam_last_sync"],
                     "balance_after": saved["account_points"],
                 },
@@ -1593,7 +1676,7 @@ def client_portal_context(user, records, active_tab, error=""):
         "steam_app_id": ARMA_REFORGER_STEAM_APP_ID,
         "steam_tools_app_id": ARMA_REFORGER_TOOLS_STEAM_APP_ID,
         "point_bank_label": point_bank_label(user),
-        "show_platform_prompt": user.get("role") in {"customer", "admin"} and not user.get("platform_prompted", False),
+        "show_platform_prompt": user.get("role") in {"customer", "admin"} and not user.get("setup_completed", False),
         "featured_charities": FEATURED_CHARITIES,
         "gofundme_search_url": GOFUNDME_CHARITY_SEARCH_URL,
         "console_platforms": CONSOLE_PLATFORMS,
@@ -1930,23 +2013,45 @@ def register_post():
     role = request.form.get("role", "customer")
     access_code = request.form.get("access_code", "")
     preferred_platform = request.form.get("preferred_platform", "steam").strip().lower()
+    selected_path = request.form.get("selected_path", "arma").strip().lower()
 
     if role not in ROLES:
         role = "customer"
+    if selected_path not in CREATIVE_PATHS:
+        selected_path = "arma"
     if not username or not email or not password:
         return render_template("login.html", mode="register", error="Username, email, and password are required.", next_url=""), 400
     if find_user(email) or find_user(username):
         return render_template("login.html", mode="register", error="That account already exists.", next_url=""), 409
     if not access_code_allows(role, access_code):
         return render_template("login.html", mode="register", error="That role access code is not valid.", next_url=""), 403
+    if preferred_platform in {"xbox", "playstation"} and not request.form.get("profile_url", "").strip():
+        return render_template("login.html", mode="register", error="Console accounts need a public profile link.", next_url=""), 400
 
     user = create_user(username, email, password, role)
     if preferred_platform in CONSOLE_PLATFORMS:
         users = load_users()
+        fetched_profile = {}
+        if preferred_platform in {"xbox", "playstation"}:
+            try:
+                fetched_profile = fetch_public_platform_profile(request.form.get("profile_url", "").strip())
+            except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as exc:
+                return render_template("login.html", mode="register", error=f"Could not read that public profile link: {exc}", next_url=""), 400
         for saved in users:
             if saved["id"] == user["id"]:
                 saved["preferred_platform"] = preferred_platform
                 saved["platform_prompted"] = True
+                saved["selected_path"] = selected_path
+                saved["setup_completed"] = True
+                if preferred_platform in {"xbox", "playstation"}:
+                    saved.setdefault("console_accounts", {})[preferred_platform] = {
+                        "account_name": fetched_profile.get("account_name") or request.form.get("account_name", "").strip(),
+                        "account_tag": request.form.get("account_tag", "").strip(),
+                        "profile_url": request.form.get("profile_url", "").strip(),
+                        "avatar": fetched_profile.get("avatar", ""),
+                        "profile_title": fetched_profile.get("account_name", ""),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
                 user = saved
                 break
         save_users(users)
@@ -1962,6 +2067,13 @@ def dashboard():
     if role in STAFF_ROLES:
         return redirect(url_for("studio_dashboard"))
     if role == "customer":
+        user = current_user()
+        if not user.get("setup_completed", False):
+            return redirect(url_for("client_portal"))
+        if user.get("preferred_platform") == "steam" and not user.get("steam_id"):
+            return redirect(url_for("steam_link"))
+        if user.get("selected_path") == "gta":
+            return redirect(url_for("gta_dashboard"))
         return redirect(url_for("client_portal"))
     return redirect(url_for("login"))
 
@@ -1971,6 +2083,8 @@ def client_portal():
     user = current_user()
     if user.get("role") not in {"customer", "admin"}:
         return redirect(url_for("login", next=request.path))
+    if user.get("setup_completed", False) and user.get("selected_path") != "arma":
+        user = set_user_path(user["id"], "arma")
     records = sort_records(records_for_user(load_requests(), user))
     active_tab = request.args.get("tab", "Overview")
     if active_tab not in CLIENT_TABS:
@@ -1985,6 +2099,33 @@ def client_portal():
             pass
 
     return render_template("client.html", **client_portal_context(user, records, active_tab))
+
+
+@app.get("/gta")
+def gta_dashboard():
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/gta"))
+    show_setup_prompt = not user.get("setup_completed", False)
+    if not show_setup_prompt and user.get("selected_path") != "gta":
+        user = set_user_path(user["id"], "gta")
+    if not show_setup_prompt and user.get("preferred_platform") == "steam" and not user.get("steam_id"):
+        return redirect(url_for("steam_link"))
+    gta_hours = millipoints((user.get("gta_steam_playtime_minutes", 0) or 0) / 60)
+    checkout_value = point_cash_value(millipoints(gta_hours * GAMEPLAY_POINT_RATE))
+    return render_template(
+        "gta.html",
+        user=user,
+        point_bank_label=point_bank_label(user),
+        gameplay_point_rate=GAMEPLAY_POINT_RATE,
+        gta_app_id=GRAND_THEFT_AUTO_V_STEAM_APP_ID,
+        gta_hours=gta_hours,
+        checkout_value=checkout_value,
+        donation_success=session.pop("donation_success", None),
+        notice=session.pop("client_notice", ""),
+        show_setup_prompt=show_setup_prompt,
+        console_platforms=CONSOLE_PLATFORMS,
+    )
 
 
 @app.post("/client/account")
@@ -2012,24 +2153,58 @@ def update_client_platform():
     platform = request.form.get("preferred_platform", "steam").strip().lower()
     if platform not in CONSOLE_PLATFORMS:
         platform = "steam"
+    selected_path = request.form.get("selected_path", user.get("selected_path", "arma")).strip().lower()
+    if selected_path not in CREATIVE_PATHS:
+        selected_path = "arma"
+    platform_return = url_for("gta_dashboard") if selected_path == "gta" else url_for("client_portal", tab="Account")
+    if platform == "steam" and not user.get("steam_id"):
+        users = load_users()
+        for saved in users:
+            if saved["id"] == user["id"]:
+                saved["preferred_platform"] = "steam"
+                saved["selected_path"] = selected_path
+                saved["platform_prompted"] = True
+                saved["setup_completed"] = True
+                session["account"] = public_user(saved)
+                break
+        save_users(users)
+        session["client_notice"] = "Steam selected. Finish Steam linking to activate the Steam point bank."
+        return redirect(url_for("steam_link"))
+
+    profile_url = request.form.get("profile_url", "").strip()
+    fetched_profile = {}
+    if platform in {"xbox", "playstation"}:
+        if not profile_url:
+            session["client_notice"] = "Console platforms need a public profile link so we can read the gamer tag and profile image."
+            return redirect(platform_return)
+        try:
+            fetched_profile = fetch_public_platform_profile(profile_url)
+        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as exc:
+            session["client_notice"] = f"Could not read that public profile link: {exc}"
+            return redirect(platform_return)
+
     users = load_users()
     for saved in users:
         if saved["id"] == user["id"]:
             saved["preferred_platform"] = platform
+            saved["selected_path"] = selected_path
             saved["platform_prompted"] = True
+            saved["setup_completed"] = True
             if platform in {"xbox", "playstation"}:
                 accounts = saved.setdefault("console_accounts", {})
                 accounts[platform] = {
-                    "account_name": request.form.get("account_name", "").strip(),
+                    "account_name": fetched_profile.get("account_name") or request.form.get("account_name", "").strip(),
                     "account_tag": request.form.get("account_tag", "").strip(),
-                    "profile_url": request.form.get("profile_url", "").strip(),
+                    "profile_url": fetched_profile.get("profile_url") or profile_url,
+                    "avatar": fetched_profile.get("avatar", ""),
+                    "profile_title": fetched_profile.get("account_name", ""),
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             session["account"] = public_user(saved)
             break
     save_users(users)
     session["client_notice"] = "Platform preference saved."
-    return redirect(url_for("client_portal", tab="Account"))
+    return redirect(platform_return)
 
 
 @app.post("/client/console-verification")
@@ -2049,14 +2224,22 @@ def submit_console_verification():
     account_name = request.form.get("account_name", "").strip()
     account_tag = request.form.get("account_tag", "").strip()
     profile_url = request.form.get("profile_url", "").strip()
+    fetched_profile = {}
+    if profile_url:
+        try:
+            fetched_profile = fetch_public_platform_profile(profile_url)
+        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as exc:
+            session["client_notice"] = f"Could not read that public profile link: {exc}"
+            return redirect(url_for("client_portal", tab="Console Verification"))
     proof = request.files.get("proof_image")
     try:
         claimed_hours = millipoints(request.form.get("claimed_hours", 0))
     except ValueError:
         claimed_hours = 0
 
-    if not account_name or claimed_hours <= 0 or not proof or not proof.filename:
-        session["client_notice"] = "Console verification needs account name, hours played, and a screenshot."
+    account_name = fetched_profile.get("account_name") or account_name
+    if not account_name or not profile_url or claimed_hours <= 0 or not proof or not proof.filename:
+        session["client_notice"] = "Console verification needs a public profile link, account name, hours played, and a screenshot."
         return redirect(url_for("client_portal", tab="Console Verification"))
 
     filename = safe_upload_filename(f"{user['id']}_{platform}", proof.filename)
@@ -2074,6 +2257,8 @@ def submit_console_verification():
             "account_name": account_name,
             "account_tag": account_tag,
             "profile_url": profile_url,
+            "avatar": fetched_profile.get("avatar", ""),
+            "profile_title": fetched_profile.get("account_name", ""),
             "updated_at": now,
         }
         saved.setdefault("console_verifications", []).insert(
@@ -2084,6 +2269,8 @@ def submit_console_verification():
                 "account_name": account_name,
                 "account_tag": account_tag,
                 "profile_url": profile_url,
+                "profile_avatar": fetched_profile.get("avatar", ""),
+                "profile_title": fetched_profile.get("account_name", ""),
                 "claimed_hours": claimed_hours,
                 "proof_url": proof_url,
                 "note": request.form.get("note", "").strip(),
@@ -2105,7 +2292,7 @@ def submit_console_verification():
 @app.get("/steam/link")
 def steam_link():
     user = current_user()
-    if user.get("role") not in {"customer", "admin"}:
+    if user.get("role") not in {"customer", "admin"} and user.get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next="/client?tab=Account"))
 
     state = secrets.token_urlsafe(20)
@@ -2127,11 +2314,11 @@ def steam_link():
 @app.get("/steam/callback")
 def steam_callback():
     user = current_user()
-    if user.get("role") not in {"customer", "admin"}:
+    if user.get("role") not in {"customer", "admin"} and user.get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next="/client?tab=Account"))
     if request.args.get("state") != session.pop("steam_openid_state", None):
         session["client_notice"] = "Steam link failed because the login state did not match."
-        return redirect(url_for("client_portal", tab="Account"))
+        return redirect(url_for("studio_dashboard", tab="Command") if user.get("role") in STAFF_ROLES else url_for("client_portal", tab="Account"))
 
     verification = dict(request.args)
     verification["openid.mode"] = "check_authentication"
@@ -2145,17 +2332,17 @@ def steam_callback():
             result = response.read().decode("utf-8", errors="replace")
     except (HTTPError, URLError, TimeoutError):
         session["client_notice"] = "Steam could not verify the account link. Try again in a moment."
-        return redirect(url_for("client_portal", tab="Account"))
+        return redirect(url_for("studio_dashboard", tab="Command") if user.get("role") in STAFF_ROLES else url_for("client_portal", tab="Account"))
 
     if "is_valid:true" not in result:
         session["client_notice"] = "Steam rejected the account verification."
-        return redirect(url_for("client_portal", tab="Account"))
+        return redirect(url_for("studio_dashboard", tab="Command") if user.get("role") in STAFF_ROLES else url_for("client_portal", tab="Account"))
 
     claimed_id = request.args.get("openid.claimed_id", "")
     match = re.search(r"/openid/id/(\d+)$", claimed_id)
     if not match:
         session["client_notice"] = "Steam did not return a usable SteamID64."
-        return redirect(url_for("client_portal", tab="Account"))
+        return redirect(url_for("studio_dashboard", tab="Command") if user.get("role") in STAFF_ROLES else url_for("client_portal", tab="Account"))
 
     steam_id = match.group(1)
     profile = {}
@@ -2170,6 +2357,9 @@ def steam_callback():
             saved["steam_id"] = steam_id
             saved["steam_name"] = profile.get("personaname", "")
             saved["steam_avatar"] = profile.get("avatarfull", "")
+            saved["preferred_platform"] = "steam"
+            saved["platform_prompted"] = True
+            saved["setup_completed"] = True
             session["account"] = public_user(saved)
             break
     save_users(users)
@@ -2180,13 +2370,15 @@ def steam_callback():
         session["client_notice"] = f"Steam linked. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
     except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
         session["client_notice"] = f"Steam linked, but playtime sync needs attention: {exc}"
-    return redirect(url_for("client_portal", tab="Account"))
+    if user.get("role") in STAFF_ROLES:
+        return redirect(url_for("studio_dashboard", tab="Command"))
+    return redirect(url_for("gta_dashboard") if user.get("selected_path") == "gta" else url_for("client_portal", tab="Account"))
 
 
 @app.post("/steam/sync")
 def steam_sync():
     user = current_user()
-    if user.get("role") not in {"customer", "admin"}:
+    if user.get("role") not in {"customer", "admin"} and user.get("role") not in STAFF_ROLES:
         return redirect(url_for("login", next="/client?tab=Account"))
     try:
         updated_user, awarded = sync_steam_gameplay_points(user["id"])
@@ -2194,7 +2386,9 @@ def steam_sync():
         session["client_notice"] = f"Steam synced. Arma Reforger playtime: {hours} hours. Awarded {awarded} new points."
     except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
         session["client_notice"] = f"Steam sync failed: {exc}"
-    return redirect(url_for("client_portal", tab="Account"))
+    if user.get("role") in STAFF_ROLES:
+        return redirect(url_for("studio_dashboard", tab="Command"))
+    return redirect(url_for("gta_dashboard") if user.get("selected_path") == "gta" else url_for("client_portal", tab="Account"))
 
 
 @app.post("/client/donate")
