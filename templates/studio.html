@@ -462,6 +462,21 @@
                 </label>
                 <button class="submit-button" type="submit">Publish mod item</button>
               </form>
+              <form class="studio-edit-form" method="post" action="{{ url_for('studio_import_mods') }}">
+                <label>
+                  Per-source limit
+                  <input name="limit_per_source" type="number" min="1" max="60" value="24" />
+                </label>
+                <div class="lock-check-grid wide">
+                  {% for source in gta_import_sources %}
+                    <label class="inline-check">
+                      <input name="source_ids" type="checkbox" value="{{ source.id }}" checked />
+                      {{ source.label }}
+                    </label>
+                  {% endfor %}
+                </div>
+                <button class="secondary-link" type="submit">Import approved site listings</button>
+              </form>
             {% else %}
               <p class="pool-note">Only admins can publish or edit catalog downloads.</p>
             {% endif %}

@@ -30,6 +30,12 @@ DISCORD_HEADERS = {
     "Accept": "application/json",
 }
 
+HTML_HEADERS = {
+    "User-Agent": "Mozilla/5.0 ThunderBuddiesStudiosCatalogImporter/1.0 (+https://fleettest-production.up.railway.app)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
 
 MODULES = [
     {
@@ -382,6 +388,30 @@ GTA_MOD_SEEDS = [
         "download_url": "",
         "points": 3,
         "status": "draft",
+    },
+]
+
+GTA_MOD_IMPORT_SOURCES = [
+    {
+        "id": "lcpdfr_gta5",
+        "label": "LCPDFR GTA5 Mods",
+        "url": "https://www.lcpdfr.com/downloads/gta5mods/",
+        "source": "LCPDFR",
+        "category": "LSPDFR",
+    },
+    {
+        "id": "gta5_latest",
+        "label": "GTA5-Mods Latest Uploads",
+        "url": "https://www.gta5-mods.com/all/latest-uploads",
+        "source": "GTA5-Mods",
+        "category": "GTA5-Mods",
+    },
+    {
+        "id": "gta5_most_downloaded",
+        "label": "GTA5-Mods Most Downloaded",
+        "url": "https://www.gta5-mods.com/all/most-downloaded",
+        "source": "GTA5-Mods",
+        "category": "GTA5-Mods",
     },
 ]
 
@@ -990,6 +1020,126 @@ def load_mod_catalog(include_drafts=False):
 def save_mod_catalog(items):
     ensure_storage()
     MOD_CATALOG_FILE.write_text(json.dumps([normalize_mod_item(item) for item in items], indent=2), encoding="utf-8")
+
+
+def clean_import_title(value):
+    value = unescape(re.sub(r"<[^>]+>", " ", value or ""))
+    value = re.sub(r"\s+", " ", value).strip(" \t\r\n-|")
+    blocked = {
+        "download",
+        "downloads",
+        "view file",
+        "submit a file",
+        "sign in",
+        "log in",
+        "register",
+        "next",
+        "previous",
+        "forums",
+        "latest uploads",
+        "most downloaded",
+    }
+    if not value or value.lower() in blocked or len(value) < 4:
+        return ""
+    return value[:140]
+
+
+def absolute_url(base_url, href):
+    href = unescape((href or "").strip())
+    if href.startswith("//"):
+        return f"https:{href}"
+    if href.startswith("http://") or href.startswith("https://"):
+        return href
+    parsed = urlparse(base_url)
+    if href.startswith("/"):
+        return f"{parsed.scheme}://{parsed.netloc}{href}"
+    return f"{parsed.scheme}://{parsed.netloc}/{href.lstrip('/')}"
+
+
+def default_mod_points(category, title):
+    text = f"{category} {title}".lower()
+    if any(word in text for word in ["script", "plugin", "callout", "fivem", "resource"]):
+        return 5
+    if any(word in text for word in ["vehicle", "pack", "eup", "mlo", "map"]):
+        return 4
+    return 3
+
+
+def parse_imported_mod_links(html, source):
+    candidates = []
+    seen = set()
+    anchor_pattern = re.compile(r"<a\b[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.IGNORECASE | re.DOTALL)
+    for href, body in anchor_pattern.findall(html):
+        href_lower = href.lower()
+        is_lcpdfr = source["source"] == "LCPDFR" and "/downloads/file/" in href_lower
+        is_gta5mods = source["source"] == "GTA5-Mods" and any(
+            part in href_lower
+            for part in [
+                "/vehicles/",
+                "/player/",
+                "/weapons/",
+                "/maps/",
+                "/scripts/",
+                "/misc/",
+                "/paintjobs/",
+                "/tools/",
+            ]
+        )
+        if not is_lcpdfr and not is_gta5mods:
+            continue
+        url = absolute_url(source["url"], href)
+        title = clean_import_title(body)
+        if not title or url in seen:
+            continue
+        seen.add(url)
+        category = source["category"]
+        candidates.append(
+            {
+                "id": f"mod_{secrets.token_hex(5)}",
+                "title": title,
+                "creator": source["source"],
+                "category": category,
+                "description": f"Imported listing from {source['label']}. Verify creator permission, install notes, and direct download behavior before relying on it for production.",
+                "source_url": url,
+                "download_url": url,
+                "points": default_mod_points(category, title),
+                "status": "published",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    return candidates
+
+
+def import_gta_mod_sources(source_ids=None, limit_per_source=24):
+    selected_ids = set(source_ids or [source["id"] for source in GTA_MOD_IMPORT_SOURCES])
+    catalog = load_mod_catalog(include_drafts=True)
+    existing_urls = {item.get("source_url") for item in catalog if item.get("source_url")}
+    imported = 0
+    errors = []
+    for source in GTA_MOD_IMPORT_SOURCES:
+        if source["id"] not in selected_ids:
+            continue
+        try:
+            request = Request(source["url"], headers=HTML_HEADERS)
+            with urlopen(request, timeout=10) as response:
+                html = response.read().decode("utf-8", errors="replace")
+            candidates = parse_imported_mod_links(html, source)
+        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as exc:
+            errors.append(f"{source['label']}: {exc}")
+            continue
+        added_for_source = 0
+        for candidate in candidates:
+            if added_for_source >= limit_per_source:
+                break
+            if candidate["source_url"] in existing_urls:
+                continue
+            catalog.insert(0, candidate)
+            existing_urls.add(candidate["source_url"])
+            imported += 1
+            added_for_source += 1
+    save_mod_catalog(catalog)
+    return imported, errors
 
 
 def set_user_path(user_id, selected_path):
@@ -2820,6 +2970,7 @@ def studio_dashboard():
         total_tracked_hours=total_tracked_hours,
         staff_stats=staff_time_stats(records, account),
         mod_catalog=load_mod_catalog(include_drafts=True),
+        gta_import_sources=GTA_MOD_IMPORT_SOURCES,
         pool_records=[
             record
             for record in records
@@ -3683,6 +3834,23 @@ def studio_create_mod():
     )
     save_mod_catalog(catalog)
     session["studio_notice"] = "GTA mod catalog item saved."
+    return redirect(url_for("studio_dashboard", tab="Mods"))
+
+
+@app.post("/studio/mods/import")
+def studio_import_mods():
+    if current_user().get("role") != "admin":
+        return redirect(url_for("studio_dashboard", tab="Mods"))
+    source_ids = request.form.getlist("source_ids")
+    try:
+        limit_per_source = max(1, min(60, int(request.form.get("limit_per_source", 24))))
+    except ValueError:
+        limit_per_source = 24
+    imported, errors = import_gta_mod_sources(source_ids, limit_per_source)
+    if errors:
+        session["studio_notice"] = f"Imported {imported} mod listings. Some sources need attention: {' | '.join(errors[:3])}"
+    else:
+        session["studio_notice"] = f"Imported {imported} new mod listings."
     return redirect(url_for("studio_dashboard", tab="Mods"))
 
 
