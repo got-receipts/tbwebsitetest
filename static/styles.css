@@ -935,6 +935,56 @@ meter {
   line-height: 1.65;
 }
 
+.gta-hero-panel {
+  background:
+    linear-gradient(135deg, rgba(10, 17, 22, 0.94), rgba(15, 25, 31, 0.76)),
+    url("https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1800&q=80");
+  background-position: center;
+  background-size: cover;
+}
+
+.steam-linked-card .steam-linked-title {
+  color: var(--cyan);
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.catalog-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-top: 16px;
+}
+
+.catalog-card {
+  background: rgba(7, 10, 13, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.catalog-card h3 {
+  font-size: 1.2rem;
+}
+
+.catalog-card p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.catalog-meta {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.catalog-meta strong {
+  color: var(--gold);
+}
+
 .transaction-list {
   display: grid;
   gap: 10px;

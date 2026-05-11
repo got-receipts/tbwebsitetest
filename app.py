@@ -19,6 +19,7 @@ DATA_DIR = BASE_DIR / "data"
 REQUESTS_FILE = DATA_DIR / "requests.json"
 USERS_FILE = DATA_DIR / "users.json"
 STUDIO_SETTINGS_FILE = DATA_DIR / "studio_settings.json"
+MOD_CATALOG_FILE = DATA_DIR / "mod_catalog.json"
 CONSOLE_PROOF_UPLOAD_DIR = BASE_DIR / "static" / "uploads" / "console-verification"
 
 app = Flask(__name__)
@@ -296,6 +297,94 @@ BUILD_OPTION_GROUPS.extend(
     ]
 )
 
+GTA_BUILD_OPTION_GROUPS = [
+    {
+        "title": "Vehicles",
+        "options": [
+            {"id": "gta_vehicle_model", "label": "Custom vehicle model or conversion", "points": 22},
+            {"id": "gta_vehicle_handling", "label": "Handling, traction, suspension, and speed tuning", "points": 16},
+            {"id": "gta_vehicle_livery", "label": "Livery, reflective decals, templates, and packs", "points": 14},
+            {"id": "gta_vehicle_emergency", "label": "ELS / non-ELS lighting, sirens, extras, and stages", "points": 20},
+            {"id": "gta_vehicle_interiors", "label": "Interior edits, gauges, emissives, and dashboard details", "points": 18},
+            {"id": "gta_vehicle_collision", "label": "Collision, glass, dirt, damage, and LOD cleanup", "points": 18},
+        ],
+    },
+    {
+        "title": "Characters & Clothing",
+        "options": [
+            {"id": "gta_ped_model", "label": "Ped model, rigging, face, or body edits", "points": 24},
+            {"id": "gta_clothing_pack", "label": "EUP clothing pack, uniforms, vests, and accessories", "points": 20},
+            {"id": "gta_badges_patches", "label": "Badges, patches, rank marks, and department variants", "points": 12},
+            {"id": "gta_texture_cleanup", "label": "Texture cleanup, normal maps, spec maps, and compression", "points": 14},
+            {"id": "gta_animation_pose", "label": "Animation, pose, prop attach, or wearable fitment", "points": 18},
+        ],
+    },
+    {
+        "title": "Scripts & Systems",
+        "options": [
+            {"id": "gta_lspdfr_plugin", "label": "LSPDFR plugin, callout, traffic stop, or agency flow", "points": 30},
+            {"id": "gta_fivem_resource", "label": "FiveM resource, server event, client script, or config", "points": 28},
+            {"id": "gta_menus_ui", "label": "Menus, UI, HUD, notifications, or interaction prompts", "points": 20},
+            {"id": "gta_economy_jobs", "label": "Economy, jobs, inventory, garage, or persistence hooks", "points": 30},
+            {"id": "gta_ai_behavior", "label": "AI, dispatch, pursuit, ambient, or scenario behavior", "points": 24},
+            {"id": "gta_database", "label": "Database, player data, permissions, or admin tooling", "points": 28},
+        ],
+    },
+    {
+        "title": "Maps & World",
+        "options": [
+            {"id": "gta_mlo", "label": "MLO interior, room layout, portals, or collisions", "points": 32},
+            {"id": "gta_ymap", "label": "YMAP placement, props, signs, and world edits", "points": 18},
+            {"id": "gta_lighting_weather", "label": "Lighting, emissives, weather/time ambience, and tuning", "points": 16},
+            {"id": "gta_custom_props", "label": "Custom props, static objects, and optimized assets", "points": 20},
+            {"id": "gta_map_optimization", "label": "LOD, occlusion, draw distance, and performance pass", "points": 22},
+        ],
+    },
+    {
+        "title": "Install & Compatibility",
+        "options": [
+            {"id": "gta_sp_install", "label": "Single-player install path and OpenIV package support", "points": 12},
+            {"id": "gta_lspdfr_compat", "label": "LSPDFR / RagePluginHook compatibility testing", "points": 18},
+            {"id": "gta_fivem_compat", "label": "FiveM artifact/resource compatibility testing", "points": 18},
+            {"id": "gta_dependency_list", "label": "Required dependencies, load order, and conflict notes", "points": 12},
+            {"id": "gta_readme_packaging", "label": "Readme, install guide, screenshots, and release packaging", "points": 10},
+        ],
+    },
+]
+
+GTA_MOD_SEEDS = [
+    {
+        "title": "Thunder Buddies GTA Starter Pack",
+        "creator": "Thunder Buddies Studios",
+        "category": "Studio Release",
+        "description": "Placeholder catalog item for studio-hosted GTA releases. Replace the download link in Studio > Mods.",
+        "source_url": "",
+        "download_url": "",
+        "points": 5,
+        "status": "draft",
+    },
+    {
+        "title": "Curated LSPDFR Download Slot",
+        "creator": "External creator",
+        "category": "LSPDFR",
+        "description": "Use this slot for a creator-approved LSPDFR resource link. Keep attribution and source URL intact.",
+        "source_url": "https://www.lcpdfr.com/downloads/gta5mods/",
+        "download_url": "",
+        "points": 3,
+        "status": "draft",
+    },
+    {
+        "title": "Curated GTA5-Mods Download Slot",
+        "creator": "External creator",
+        "category": "GTA5-Mods",
+        "description": "Use this slot for a creator-approved GTA5-Mods resource link. Keep attribution and source URL intact.",
+        "source_url": "https://www.gta5-mods.com/",
+        "download_url": "",
+        "points": 3,
+        "status": "draft",
+    },
+]
+
 WORKSHOP_FALLBACK_DEPENDENCIES = [
     {"id": "where_am_i", "label": "Where Am I", "author": "ValterB", "points": 4},
     {"id": "project_redline_uh60", "label": "Project Redline - UH-60", "author": "Ralian", "points": 14},
@@ -376,7 +465,7 @@ PHASES = [
 
 PRIORITIES = ["Backlog", "Normal", "High", "Critical"]
 PROJECT_TYPES = ["Client mod", "Internal tool", "Asset pack", "Compatibility patch", "Research spike"]
-STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Settings", "Admin"]
+STUDIO_TABS = ["Command", "Projects", "Pipeline", "Clients", "Complexity", "Freelance Pool", "Mods", "Settings", "Admin"]
 CLIENT_TABS = ["Overview", "Requests", "New Build", "Donate", "Account", "Console Verification"]
 ROLES = ["customer", "developer", "moderator", "tester", "staff", "admin"]
 STAFF_ROLES = {"developer", "moderator", "tester", "staff", "admin"}
@@ -697,6 +786,25 @@ def ensure_storage():
         USERS_FILE.write_text("[]", encoding="utf-8")
     if not STUDIO_SETTINGS_FILE.exists():
         STUDIO_SETTINGS_FILE.write_text(json.dumps(DEFAULT_STUDIO_SETTINGS, indent=2), encoding="utf-8")
+    if not MOD_CATALOG_FILE.exists():
+        seeded = []
+        for item in GTA_MOD_SEEDS:
+            seeded.append(
+                {
+                    "id": f"mod_{secrets.token_hex(5)}",
+                    "title": item["title"],
+                    "creator": item["creator"],
+                    "category": item["category"],
+                    "description": item["description"],
+                    "source_url": item["source_url"],
+                    "download_url": item["download_url"],
+                    "points": item["points"],
+                    "status": item["status"],
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        MOD_CATALOG_FILE.write_text(json.dumps(seeded, indent=2), encoding="utf-8")
     seed_test_accounts()
 
 
@@ -850,6 +958,38 @@ def load_users():
 def save_users(users):
     ensure_storage()
     USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
+
+
+def normalize_mod_item(item):
+    item.setdefault("id", f"mod_{secrets.token_hex(5)}")
+    item.setdefault("title", "Untitled mod")
+    item.setdefault("creator", "Thunder Buddies Studios")
+    item.setdefault("category", "Studio Release")
+    item.setdefault("description", "")
+    item.setdefault("source_url", "")
+    item.setdefault("download_url", "")
+    item["points"] = millipoints(item.get("points", 0))
+    item.setdefault("status", "published")
+    item.setdefault("created_at", datetime.now(timezone.utc).isoformat())
+    item.setdefault("updated_at", item["created_at"])
+    return item
+
+
+def load_mod_catalog(include_drafts=False):
+    ensure_storage()
+    try:
+        items = json.loads(MOD_CATALOG_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        items = []
+    catalog = [normalize_mod_item(item) for item in items]
+    if not include_drafts:
+        catalog = [item for item in catalog if item.get("status") == "published" and item.get("download_url")]
+    return sorted(catalog, key=lambda item: item.get("updated_at", ""), reverse=True)
+
+
+def save_mod_catalog(items):
+    ensure_storage()
+    MOD_CATALOG_FILE.write_text(json.dumps([normalize_mod_item(item) for item in items], indent=2), encoding="utf-8")
 
 
 def set_user_path(user_id, selected_path):
@@ -1862,6 +2002,86 @@ def calculate_complexity(form):
     }
 
 
+def calculate_gta_complexity(form):
+    score = 0
+    selected_build_options = []
+    timeline_summary = []
+    for group in GTA_BUILD_OPTION_GROUPS:
+        for option in group["options"]:
+            if form.get(f"gtaopt_{option['id']}") != "on":
+                continue
+            reason = form.get(f"gtaopt_{option['id']}_reason", "").strip()
+            reason_points = reason_detail_score(reason, "system")
+            option_score = millipoints(option["points"] + reason_points)
+            eta_days = timeline_days(option["points"], reason_points, "system")
+            score += option_score
+            selected_build_options.append(
+                {
+                    "group": group["title"],
+                    "id": option["id"],
+                    "label": option["label"],
+                    "points": option_score,
+                    "base_points": option["points"],
+                    "reason_points": reason_points,
+                    "reason": reason,
+                    "eta_days": eta_days,
+                }
+            )
+            timeline_summary.append(
+                {
+                    "label": option["label"],
+                    "type": group["title"],
+                    "eta_days": eta_days,
+                    "points": option_score,
+                }
+            )
+
+    custom_description = form.get("custom_description", "").strip()
+    if form.get("custom_enabled") == "on" and custom_description:
+        detail_points = max(10, reason_detail_score(custom_description, "system"))
+        eta_days = timeline_days(detail_points, 0, "system")
+        score += detail_points
+        selected_build_options.append(
+            {
+                "group": "Custom GTA notes",
+                "id": "gta_custom_notes",
+                "label": "Custom GTA request notes",
+                "points": detail_points,
+                "base_points": detail_points,
+                "reason_points": 0,
+                "reason": custom_description,
+                "eta_days": eta_days,
+            }
+        )
+        timeline_summary.append({"label": "Custom GTA request notes", "type": "Custom", "eta_days": eta_days, "points": detail_points})
+
+    deadline = form.get("deadline", "standard")
+    deadline_points = {"standard": 0, "soon": 12, "rush": 28}.get(deadline, 0)
+    score += deadline_points
+    if len(selected_build_options) >= 4:
+        score += 16
+    if len(selected_build_options) >= 7:
+        score += 28
+    score = millipoints(score)
+    eta_days = max(1, sum(item["eta_days"] for item in timeline_summary))
+    if deadline == "soon":
+        eta_days += 2
+    if deadline == "rush":
+        eta_days += 4
+    return {
+        "score": score,
+        "tier": complexity_tier(score),
+        "selected_modules": [],
+        "selected_build_options": selected_build_options,
+        "selected_dependencies": [],
+        "timeline_summary": timeline_summary,
+        "eta_days": eta_days,
+        "hours_estimate": estimate_hours(score),
+        "advised_donation": advised_donation(score),
+        "deadline_points": deadline_points,
+    }
+
+
 def current_user():
     account = session.get("account")
     if account:
@@ -2125,6 +2345,8 @@ def gta_dashboard():
         notice=session.pop("client_notice", ""),
         show_setup_prompt=show_setup_prompt,
         console_platforms=CONSOLE_PLATFORMS,
+        gta_option_groups=GTA_BUILD_OPTION_GROUPS,
+        mod_catalog=load_mod_catalog(),
     )
 
 
@@ -2367,7 +2589,12 @@ def steam_callback():
     try:
         updated_user, awarded = sync_steam_gameplay_points(user["id"])
         hours = millipoints((updated_user.get("steam_playtime_minutes", 0) or 0) / 60)
-        session["client_notice"] = f"Steam linked. Arma Reforger playtime: {hours} hours. Awarded {awarded} points."
+        tools_hours = millipoints((updated_user.get("steam_tools_playtime_minutes", 0) or 0) / 60)
+        gta_hours = millipoints((updated_user.get("gta_steam_playtime_minutes", 0) or 0) / 60)
+        if updated_user.get("selected_path") == "gta":
+            session["client_notice"] = f"Steam linked. GTA V: {gta_hours} hours. Arma Reforger: {hours} hours. Tools: {tools_hours} hours. Awarded {awarded} points."
+        else:
+            session["client_notice"] = f"Steam linked. Arma Reforger: {hours} hours. Tools: {tools_hours} hours. Awarded {awarded} points."
     except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
         session["client_notice"] = f"Steam linked, but playtime sync needs attention: {exc}"
     if user.get("role") in STAFF_ROLES:
@@ -2383,7 +2610,12 @@ def steam_sync():
     try:
         updated_user, awarded = sync_steam_gameplay_points(user["id"])
         hours = millipoints((updated_user.get("steam_playtime_minutes", 0) or 0) / 60)
-        session["client_notice"] = f"Steam synced. Arma Reforger playtime: {hours} hours. Awarded {awarded} new points."
+        tools_hours = millipoints((updated_user.get("steam_tools_playtime_minutes", 0) or 0) / 60)
+        gta_hours = millipoints((updated_user.get("gta_steam_playtime_minutes", 0) or 0) / 60)
+        if updated_user.get("selected_path") == "gta":
+            session["client_notice"] = f"Steam refreshed. GTA V: {gta_hours} hours. Arma Reforger: {hours} hours. Tools: {tools_hours} hours. Awarded {awarded} new points."
+        else:
+            session["client_notice"] = f"Steam refreshed. Arma Reforger: {hours} hours. Tools: {tools_hours} hours. Awarded {awarded} new points."
     except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError, KeyError) as exc:
         session["client_notice"] = f"Steam sync failed: {exc}"
     if user.get("role") in STAFF_ROLES:
@@ -2587,6 +2819,7 @@ def studio_dashboard():
         datetime_local_value=datetime_local_value,
         total_tracked_hours=total_tracked_hours,
         staff_stats=staff_time_stats(records, account),
+        mod_catalog=load_mod_catalog(include_drafts=True),
         pool_records=[
             record
             for record in records
@@ -3257,6 +3490,200 @@ def create_request():
     if destination == "client":
         return redirect(url_for("client_portal", tab="Requests"))
     return redirect(url_for("request_detail", reference=reference))
+
+
+@app.post("/gta/requests")
+def create_gta_request():
+    records = load_requests()
+    user = current_user()
+    if user.get("role") != "admin" and studio_lock_blocks("submissions"):
+        session["client_notice"] = lock_message()
+        return redirect(url_for("gta_dashboard"))
+    if user.get("role") == "customer" and user.get("suspended"):
+        return render_template("login.html", mode="login", error="This client account is suspended and cannot create submissions.", next_url=""), 403
+    if user.get("role") == "customer" and not user.get("steam_id"):
+        session["client_notice"] = "Link Steam before creating a GTA V custom creation request."
+        return redirect(url_for("gta_dashboard"))
+
+    complexity = calculate_gta_complexity(request.form)
+    available_points = millipoints(user.get("account_points", 0))
+    required_points = complexity["score"]
+    if user.get("role") == "customer" and available_points < required_points:
+        session["client_notice"] = (
+            f"This GTA request needs {required_points} points. "
+            f"You currently have {available_points}. Refresh Steam hours to add eligible GTA V playtime."
+        )
+        return redirect(url_for("gta_dashboard"))
+
+    reference = make_reference(records).replace("TBS-RF", "TBS-GTA")
+    now = datetime.now(timezone.utc)
+    eta_days = complexity["eta_days"]
+    over_internal_lane = eta_days > 30
+    pool_status = "standard"
+    auto_review_until = None
+    assignee = "Unassigned"
+    priority = "Normal"
+    status_index = 0
+    client_note = "GTA V custom creation request received. Thunder Buddies Studios will review scope and confirm the production lane."
+    if over_internal_lane:
+        pool_status = "auto_review"
+        auto_review_until = datetime.fromtimestamp(now.timestamp() + 90, timezone.utc).isoformat()
+        assignee = "Auto review"
+        priority = "Backlog"
+        status_index = 1
+        client_note = (
+            "This GTA request currently estimates above 30 days. It is in auto review and will release "
+            "to the freelance pool after 90 seconds if still over lane."
+        )
+
+    record = {
+        "reference": reference,
+        "project_name": request.form.get("project_name", "Untitled GTA V custom creation").strip(),
+        "discord_name": request.form.get("discord_name", user["username"]).strip(),
+        "unit_name": request.form.get("server_name", "").strip(),
+        "deadline": request.form.get("deadline", "standard"),
+        "discord_id": user["id"],
+        "discord_username": user["username"],
+        "client_user_id": user["id"],
+        "client_email": user.get("email", ""),
+        "score": complexity["score"],
+        "tier": complexity["tier"],
+        "deadline_points": complexity["deadline_points"],
+        "selected_modules": [],
+        "selected_build_options": complexity["selected_build_options"],
+        "selected_dependencies": [],
+        "timeline_summary": complexity["timeline_summary"],
+        "eta_days": eta_days,
+        "hours_estimate": complexity["hours_estimate"],
+        "advised_donation": complexity["advised_donation"],
+        "points_spent": required_points if user.get("role") == "customer" else 0,
+        "pool_status": pool_status,
+        "auto_review_until": auto_review_until,
+        "claimed_by": "",
+        "claimed_by_id": "",
+        "status_index": status_index,
+        "priority": priority,
+        "project_type": "GTA V custom creation",
+        "assignee": assignee,
+        "budget_state": "Not quoted",
+        "studio_notes": "",
+        "client_visible_notes": client_note,
+        "created_at": now.isoformat(),
+        "last_updated": now.isoformat(),
+        "notes": client_note,
+    }
+    records.append(record)
+    save_requests(records)
+    if user.get("role") == "customer":
+        users = load_users()
+        for saved in users:
+            if saved["id"] != user["id"]:
+                continue
+            saved["account_points"] = millipoints(saved.get("account_points", 0) - required_points)
+            spend_id = f"spend_{secrets.token_hex(5)}"
+            saved.setdefault("point_spend_log", []).append({"id": spend_id, "reference": reference, "points": required_points, "created_at": now.isoformat()})
+            saved.setdefault("point_transactions", []).insert(
+                0,
+                {
+                    "id": f"debit_{spend_id}",
+                    "type": "debit",
+                    "source": "gta_request",
+                    "label": "GTA V custom creation request",
+                    "points": required_points,
+                    "hours": 0,
+                    "reference": reference,
+                    "note": f"Points deducted for {record['project_name']}.",
+                    "created_at": now.isoformat(),
+                    "balance_after": saved["account_points"],
+                },
+            )
+            session["account"] = public_user(saved)
+            break
+        save_users(users)
+    session["client_notice"] = f"GTA request submitted as {reference}."
+    return redirect(url_for("gta_dashboard"))
+
+
+@app.post("/gta/mods/<mod_id>/download")
+def download_gta_mod(mod_id):
+    user = current_user()
+    if user.get("role") not in {"customer", "admin"}:
+        return redirect(url_for("login", next="/gta"))
+    catalog = load_mod_catalog()
+    item = next((mod for mod in catalog if mod["id"] == mod_id), None)
+    if not item:
+        session["client_notice"] = "That mod is not currently available."
+        return redirect(url_for("gta_dashboard"))
+    if user.get("role") == "customer" and not user.get("steam_id"):
+        session["client_notice"] = "Link Steam and refresh hours before using the playtime bank for GTA downloads."
+        return redirect(url_for("gta_dashboard"))
+    required_points = millipoints(item.get("points", 0))
+    if user.get("role") == "customer" and millipoints(user.get("account_points", 0)) < required_points:
+        session["client_notice"] = f"{item['title']} needs {required_points} points. Refresh Steam hours or keep playing to build the bank."
+        return redirect(url_for("gta_dashboard"))
+    if user.get("role") == "customer" and required_points > 0:
+        users = load_users()
+        now = datetime.now(timezone.utc).isoformat()
+        for saved in users:
+            if saved["id"] != user["id"]:
+                continue
+            saved["account_points"] = millipoints(saved.get("account_points", 0) - required_points)
+            transaction_id = f"download_{secrets.token_hex(5)}"
+            saved.setdefault("point_transactions", []).insert(
+                0,
+                {
+                    "id": transaction_id,
+                    "type": "debit",
+                    "source": "gta_download",
+                    "label": f"GTA mod download: {item['title']}",
+                    "points": required_points,
+                    "hours": 0,
+                    "reference": item["id"],
+                    "note": "Playtime bank used for a no-cash mod catalog download.",
+                    "created_at": now,
+                    "balance_after": saved["account_points"],
+                },
+            )
+            session["account"] = public_user(saved)
+            break
+        save_users(users)
+    return redirect(item["download_url"])
+
+
+@app.post("/studio/mods")
+def studio_create_mod():
+    if current_user().get("role") != "admin":
+        return redirect(url_for("studio_dashboard", tab="Mods"))
+    title = request.form.get("title", "").strip()
+    download_url = request.form.get("download_url", "").strip()
+    source_url = request.form.get("source_url", "").strip()
+    if not title or not download_url or urlparse(download_url).scheme not in {"http", "https"}:
+        session["studio_notice"] = "A mod release needs a title and a valid Google Drive or approved creator download link."
+        return redirect(url_for("studio_dashboard", tab="Mods"))
+    if source_url and urlparse(source_url).scheme not in {"http", "https"}:
+        session["studio_notice"] = "Source URL must start with http or https."
+        return redirect(url_for("studio_dashboard", tab="Mods"))
+    catalog = load_mod_catalog(include_drafts=True)
+    now = datetime.now(timezone.utc).isoformat()
+    catalog.insert(
+        0,
+        {
+            "id": f"mod_{secrets.token_hex(5)}",
+            "title": title,
+            "creator": request.form.get("creator", "Thunder Buddies Studios").strip() or "Thunder Buddies Studios",
+            "category": request.form.get("category", "Studio Release").strip() or "Studio Release",
+            "description": request.form.get("description", "").strip(),
+            "source_url": source_url,
+            "download_url": download_url,
+            "points": millipoints(request.form.get("points", 0)),
+            "status": request.form.get("status", "published") if request.form.get("status") in {"published", "draft"} else "published",
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+    save_mod_catalog(catalog)
+    session["studio_notice"] = "GTA mod catalog item saved."
+    return redirect(url_for("studio_dashboard", tab="Mods"))
 
 
 @app.get("/requests/<reference>")

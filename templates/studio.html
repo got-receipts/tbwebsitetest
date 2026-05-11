@@ -417,6 +417,84 @@
         </section>
       {% endif %}
 
+      {% if active_tab == "Mods" %}
+        <section class="settings-grid">
+          <article class="wide">
+            <span class="label">GTA mod releases</span>
+            <h2>Publish catalog downloads</h2>
+            <p>Add Thunder Buddies releases, Google Drive downloads, or creator-approved external resources. Client downloads spend playtime points and redirect to the approved download URL.</p>
+            {% if is_admin %}
+              <form class="studio-edit-form" method="post" action="{{ url_for('studio_create_mod') }}">
+                <label>
+                  Mod title
+                  <input name="title" placeholder="SASP vehicle pack / callout plugin / clothing pack" required />
+                </label>
+                <label>
+                  Creator
+                  <input name="creator" value="Thunder Buddies Studios" />
+                </label>
+                <label>
+                  Category
+                  <input name="category" placeholder="LSPDFR, GTA5-Mods, Studio Release, FiveM" />
+                </label>
+                <label>
+                  Points
+                  <input name="points" type="number" min="0" step="0.001" value="3" />
+                </label>
+                <label>
+                  Status
+                  <select name="status">
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </label>
+                <label class="wide">
+                  Source / attribution URL
+                  <input name="source_url" placeholder="https://www.lcpdfr.com/... or https://www.gta5-mods.com/..." />
+                </label>
+                <label class="wide">
+                  Download URL
+                  <input name="download_url" placeholder="Google Drive direct link or creator-approved download URL" required />
+                </label>
+                <label class="wide">
+                  Description
+                  <textarea name="description" placeholder="What this mod is, install target, dependencies, and creator notes"></textarea>
+                </label>
+                <button class="submit-button" type="submit">Publish mod item</button>
+              </form>
+            {% else %}
+              <p class="pool-note">Only admins can publish or edit catalog downloads.</p>
+            {% endif %}
+          </article>
+          {% for item in mod_catalog %}
+            <article>
+              <span class="label">{{ item.category }} | {{ item.status|title }}</span>
+              <h2>{{ item.title }}</h2>
+              <p>{{ item.description or "No description entered." }}</p>
+              <div class="module-summary">
+                <article>
+                  <strong>{{ item.creator }}</strong>
+                  <span>{{ item.points }} points</span>
+                  <p>{{ item.updated_at }}</p>
+                </article>
+              </div>
+              {% if item.source_url %}
+                <a class="quiet-link" href="{{ item.source_url }}" target="_blank" rel="noopener">Open source</a>
+              {% endif %}
+              {% if item.download_url %}
+                <a class="quiet-link" href="{{ item.download_url }}" target="_blank" rel="noopener">Open download</a>
+              {% endif %}
+            </article>
+          {% else %}
+            <article>
+              <span class="label">Catalog</span>
+              <h2>No mod links yet</h2>
+              <p>Add the first GTA release above.</p>
+            </article>
+          {% endfor %}
+        </section>
+      {% endif %}
+
       {% if active_tab == "Admin" and is_admin %}
         <section class="economy-dashboard">
           <article>

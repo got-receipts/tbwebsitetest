@@ -5,6 +5,7 @@ __pycache__/
 data/requests.json
 data/users.json
 data/studio_settings.json
+data/mod_catalog.json
 node_modules/
 npm-debug.log*
 .codex_piptmp/

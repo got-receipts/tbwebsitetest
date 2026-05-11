@@ -507,12 +507,14 @@
           </article>
           <article>
             <span class="label">Steam <span class="info-dot" title="Required to read Arma Reforger playtime.">i</span></span>
-            <h2>{{ user.steam_name or "Steam not linked" }}</h2>
+            <h2>{{ "Steam linked" if user.steam_id else "Steam not linked" }}</h2>
             {% if user.steam_id %}
+              <p class="steam-linked-title">{{ user.steam_name or "Steam account connected" }}</p>
               <p>SteamID64: {{ user.steam_id }}</p>
               <p>Arma Reforger: {{ ((user.steam_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
+              <p>Arma Reforger Tools: {{ ((user.steam_tools_playtime_minutes or 0) / 60)|round(2) }} hours synced</p>
               <form method="post" action="{{ url_for('steam_sync') }}">
-                <button class="submit-button" type="submit">Sync Steam playtime</button>
+                <button class="submit-button" type="submit">Refresh hours</button>
               </form>
             {% else %}
               <a class="submit-button" href="{{ url_for('steam_link') }}">Link Steam account</a>

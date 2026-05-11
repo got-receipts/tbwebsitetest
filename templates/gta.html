@@ -20,8 +20,9 @@
       </a>
       <nav aria-label="GTA navigation">
         <a class="active" href="{{ url_for('gta_dashboard') }}">GTA Dashboard</a>
+        <a href="#gta-builder">Build Request</a>
+        <a href="#gta-catalog">Mod Catalog</a>
         <a href="{{ url_for('client_portal') }}">Arma Reforger</a>
-        <a href="{{ url_for('client_portal', tab='Donate') }}">Donate</a>
       </nav>
       <div class="client-account-actions">
         <a class="discord-button" href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -34,16 +35,26 @@
         <div class="studio-alert">{{ notice }}</div>
       {% endif %}
 
-      <section class="client-hero-panel">
+      <section class="client-hero-panel gta-hero-panel">
         <div>
           <span class="label">Grand Theft Auto V Mods</span>
-          <h1>Custom creations checkout.</h1>
-          <p>Sync Steam Grand Theft Auto V playtime, convert eligible hours into one point bank, and use the checkout planner for GTA V mod and custom creation requests.</p>
+          <h1>GTA V custom creation hub.</h1>
+          <p>Use Steam GTA V hours as your playtime bank, request custom work with clear scope, and browse point-gated releases from Thunder Buddies Studios and approved creator sources.</p>
         </div>
-        <div class="client-reference-card">
+        <div class="client-reference-card steam-linked-card">
           <span class="label">{{ point_bank_label }}</span>
           <strong>{{ user.account_points }}</strong>
-          <span>{{ gta_hours }} GTA V Steam hours synced</span>
+          {% if user.steam_id %}
+            <span class="steam-linked-title">Steam linked</span>
+            <span>SteamID64: {{ user.steam_id }}</span>
+            <span>{{ gta_hours }} GTA V hrs synced</span>
+            <form method="post" action="{{ url_for('steam_sync') }}">
+              <button class="widget-button compact" type="submit">Refresh hours</button>
+            </form>
+          {% else %}
+            <span>Steam required for GTA checkout</span>
+            <a class="widget-button compact" href="{{ url_for('steam_link') }}">Link Steam</a>
+          {% endif %}
         </div>
       </section>
 
@@ -51,17 +62,17 @@
         <article>
           <span class="label">GTA V Steam app</span>
           <strong>{{ gta_app_id }}</strong>
-          <p>Steam playtime source for checkout credit.</p>
+          <p>Steam playtime source.</p>
         </article>
         <article>
           <span class="label">GTA hours</span>
           <strong>{{ gta_hours }}</strong>
-          <p>Synced from Steam profile ownership data.</p>
+          <p>Synced from Steam.</p>
         </article>
         <article>
           <span class="label">Checkout value</span>
           <strong>${{ "%.2f"|format(checkout_value) }}</strong>
-          <p>Estimated value from synced GTA hours.</p>
+          <p>Estimated value from synced hours.</p>
         </article>
         <article>
           <span class="label">Point rate</span>
@@ -69,35 +80,151 @@
           <p>Points per verified Steam hour.</p>
         </article>
         <article>
-          <span class="label">Steam</span>
-          <strong>{{ user.steam_name or "Not linked" }}</strong>
-          {% if user.steam_id %}
-            <form method="post" action="{{ url_for('steam_sync') }}">
-              <button class="widget-button compact" type="submit">Sync GTA hours</button>
-            </form>
-          {% else %}
-            <a class="widget-button compact" href="{{ url_for('steam_link') }}">Link Steam</a>
-          {% endif %}
+          <span class="label">Catalog</span>
+          <strong>{{ mod_catalog|length }}</strong>
+          <p>Published downloads.</p>
         </article>
       </section>
 
-      <section class="settings-grid">
-        <article>
-          <span class="label">GTA creation lane</span>
-          <h2>Request planner</h2>
-          <p>Use this dashboard for GTA V custom creations, vehicle packs, clothing, environment edits, scripts, server assets, and other studio-reviewed work.</p>
-        </article>
-        <article>
-          <span class="label">Checkout</span>
-          <h2>Steam-hour backed</h2>
-          <p>Your Steam GTA V hours are credited into the same account point bank. Admin review still controls final production scope.</p>
-        </article>
-        <article>
-          <span class="label">One account</span>
-          <h2>Switch lanes</h2>
-          <p>You can still access the Arma Reforger studio lane from the top navigation without creating another account.</p>
-        </article>
+      <section id="gta-builder" class="workspace client-build-workspace">
+        <div class="section-heading">
+          <span class="label">GTA V request builder</span>
+          <h2>Tell us exactly what you want built</h2>
+          <p>Check every matching area, then use each description box for details. For best results, write your idea in OpenAI ChatGPT first and paste a clear spec into the matching boxes.</p>
+        </div>
+        <form id="modForm" class="builder-grid" method="post" action="{{ url_for('create_gta_request') }}" data-point-balance="{{ user.account_points }}" data-steam-linked="{{ 'true' if user.steam_id else 'false' }}">
+          <aside class="project-panel" aria-label="GTA project details">
+            <label>
+              Project name
+              <input name="project_name" type="text" placeholder="SASP fleet pack / custom server resource" required />
+            </label>
+            <label>
+              Discord username
+              <input name="discord_name" type="text" value="{{ user.username }}" required />
+            </label>
+            <label>
+              Target use
+              <input name="server_name" type="text" placeholder="Single-player, FiveM server, LSPDFR, private pack" />
+            </label>
+            <label>
+              Deadline pressure
+              <select id="deadline" name="deadline">
+                <option value="standard">Standard timeline</option>
+                <option value="soon">Needed in 2-4 weeks</option>
+                <option value="rush">Rush build</option>
+              </select>
+            </label>
+            <div class="score-box">
+              <span class="label">Live complexity</span>
+              <strong id="complexityScore">0 pts</strong>
+              <span id="complexityTier">Recon</span>
+              <span id="timelineEstimate">ETA: 1 day</span>
+              <span id="pointBalanceNotice">Bank: {{ user.account_points }} pts</span>
+              <meter id="complexityMeter" min="0" max="240" value="0"></meter>
+            </div>
+            {% if not user.steam_id %}
+              <p class="pool-note">Link Steam before submitting GTA V custom creation requests.</p>
+            {% endif %}
+            <button class="submit-button" type="submit">Submit GTA request</button>
+          </aside>
+
+          <div class="question-list">
+            <article class="builder-option-shell">
+              <div class="studio-section-title">
+                <h2>GTA build sections</h2>
+                <span><span class="info-dot" title="Each selected system adds complexity points. Description detail increases estimate accuracy.">i</span></span>
+              </div>
+              <div class="builder-tabs">
+                {% for group in gta_option_groups %}
+                  <section class="builder-tab-panel">
+                    <h3>{{ group.title }}</h3>
+                    <div class="option-check-grid">
+                      {% for option in group.options %}
+                        <label class="option-check">
+                          <input name="gtaopt_{{ option.id }}" type="checkbox" data-points="{{ option.points }}" />
+                          <span>
+                            <strong>{{ option.label }}</strong>
+                            <em>{{ option.points }} pts</em>
+                          </span>
+                          <textarea
+                            class="reason-field"
+                            name="gtaopt_{{ option.id }}_reason"
+                            placeholder="Describe what needs to be done. Paste a ChatGPT-polished spec here: references, colors, assets, scripts, compatibility, install target, and exact behavior."
+                          ></textarea>
+                        </label>
+                      {% endfor %}
+                    </div>
+                  </section>
+                {% endfor %}
+              </div>
+            </article>
+
+            <article class="question-card" data-base="0" data-risk="0">
+              <div class="question-head">
+                <div class="question-title">
+                  <strong>Anything custom not listed?</strong>
+                  <span>Use this for anything the GTA checklist does not cover.</span>
+                </div>
+                <label class="switch" aria-label="Enable custom notes">
+                  <input name="custom_enabled" type="checkbox" />
+                  <span></span>
+                </label>
+              </div>
+              <div class="question-body">
+                <label>
+                  Custom notes
+                  <textarea name="custom_description" placeholder="Paste the clearest possible description here. Mention install platform, dependencies, references, file types, and expected behavior."></textarea>
+                </label>
+                <span class="mini-score">Detailed wording raises planning points and timeline accuracy.</span>
+              </div>
+            </article>
+          </div>
+        </form>
       </section>
+
+      <section id="gta-catalog" class="client-panel gta-catalog-panel">
+        <div class="studio-section-title">
+          <div>
+            <span class="label">Mod dashboard</span>
+            <h2>Browse GTA downloads</h2>
+          </div>
+          <span>Uses playtime points, never cash checkout</span>
+        </div>
+        <div class="catalog-grid">
+          {% for item in mod_catalog %}
+            <article class="catalog-card">
+              <span class="label">{{ item.category }}</span>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+              <div class="catalog-meta">
+                <span>{{ item.creator }}</span>
+                <strong>{{ item.points }} pts</strong>
+              </div>
+              {% if item.source_url %}
+                <a class="quiet-link" href="{{ item.source_url }}" target="_blank" rel="noopener">Creator source</a>
+              {% endif %}
+              <form method="post" action="{{ url_for('download_gta_mod', mod_id=item.id) }}">
+                <button class="submit-button" type="submit">Use points and download</button>
+              </form>
+            </article>
+          {% else %}
+            <p class="empty-state">No published GTA downloads yet. Admins can add Google Drive or creator-approved links from Studio > Mods.</p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <div class="modal-backdrop" id="curationBlockModal" aria-hidden="true">
+        <section class="site-modal curation-block-modal" role="dialog" aria-modal="true" aria-label="Project curation blocked">
+          <button class="modal-close" type="button" data-close-modal>Close</button>
+          <span class="label">GTA curation</span>
+          <h2>Submission blocked</h2>
+          <div class="curation-block-list" id="curationBlockReasons"></div>
+          <div class="hero-actions">
+            <a class="primary-link" href="{{ url_for('steam_link') }}">Link Steam</a>
+            <button class="secondary-link" type="button" data-close-modal>Review build</button>
+          </div>
+        </section>
+      </div>
 
       {% if show_setup_prompt %}
         <div class="modal-backdrop open" id="gtaSetupModal" aria-hidden="false">
