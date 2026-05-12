@@ -1044,6 +1044,20 @@ def clean_import_title(value):
     return value[:140]
 
 
+def import_link_title(body):
+    for pattern in [
+        r"<img\b[^>]*(?:title|alt)=[\"']([^\"']+)[\"']",
+        r"<h[1-6]\b[^>]*>(.*?)</h[1-6]>",
+        r"<span\b[^>]*class=[\"'][^\"']*(?:title|name)[^\"']*[\"'][^>]*>(.*?)</span>",
+    ]:
+        match = re.search(pattern, body or "", re.IGNORECASE | re.DOTALL)
+        if match:
+            title = clean_import_title(match.group(1))
+            if title:
+                return title
+    return clean_import_title(body)
+
+
 def absolute_url(base_url, href):
     href = unescape((href or "").strip())
     if href.startswith("//"):
@@ -1088,7 +1102,7 @@ def parse_imported_mod_links(html, source):
         if not is_lcpdfr and not is_gta5mods:
             continue
         url = absolute_url(source["url"], href)
-        title = clean_import_title(body)
+        title = import_link_title(body)
         if not title or url in seen:
             continue
         seen.add(url)
@@ -2440,10 +2454,10 @@ def dashboard():
         user = current_user()
         if not user.get("setup_completed", False):
             return redirect(url_for("client_portal"))
-        if user.get("preferred_platform") == "steam" and not user.get("steam_id"):
-            return redirect(url_for("steam_link"))
         if user.get("selected_path") == "gta":
             return redirect(url_for("gta_dashboard"))
+        if user.get("preferred_platform") == "steam" and not user.get("steam_id"):
+            return redirect(url_for("steam_link"))
         return redirect(url_for("client_portal"))
     return redirect(url_for("login"))
 
@@ -2479,8 +2493,6 @@ def gta_dashboard():
     show_setup_prompt = not user.get("setup_completed", False)
     if not show_setup_prompt and user.get("selected_path") != "gta":
         user = set_user_path(user["id"], "gta")
-    if not show_setup_prompt and user.get("preferred_platform") == "steam" and not user.get("steam_id"):
-        return redirect(url_for("steam_link"))
     gta_hours = millipoints((user.get("gta_steam_playtime_minutes", 0) or 0) / 60)
     checkout_value = point_cash_value(millipoints(gta_hours * GAMEPLAY_POINT_RATE))
     return render_template(
